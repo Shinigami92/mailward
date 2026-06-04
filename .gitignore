@@ -1,0 +1,15 @@
+node_modules/
+dist/
+
+# Secrets & local state
+.env
+.cache/
+.claude/settings.local.json
+
+# Personal config — copy the *.example.yaml templates to these and edit.
+# (They hold your folder names + sender lists, so they stay out of git.)
+config.yaml
+rules.yaml
+
+# Exported triage files (contain personal mail metadata)
+*.csv

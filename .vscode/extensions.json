@@ -1,0 +1,4 @@
+{
+  "// note": "redhat.vscode-yaml reads the `# yaml-language-server: $schema=` modelines in config.yaml / rules.yaml to provide hover docs, validation and autocomplete.",
+  "recommendations": ["redhat.vscode-yaml"]
+}

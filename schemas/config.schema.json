@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Shinigami92/mailward/blob/main/schemas/config.schema.json",
+  "title": "mailward operational config",
+  "description": "Operational settings for mailward: which IMAP folders to scan, skip, ignore, or treat as confidential. Connection & auth live in .env; classification data lives in rules.yaml.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["folders"],
+  "properties": {
+    "folders": {
+      "type": "object",
+      "description": "Folder selection policy: what the tool scans by default and which folders are off-limits or sensitive.",
+      "additionalProperties": false,
+      "required": ["scan"],
+      "properties": {
+        "scan": {
+          "description": "Folders the default run scans. null (or omitted) = auto-discover every selectable folder, minus the skips below. A list = scan ONLY these exact IMAP paths (a confidential folder is scanned only if named here).",
+          "type": ["array", "null"],
+          "items": { "type": "string" },
+          "examples": [null, ["INBOX", "Junk"]]
+        },
+        "skipSpecialUse": {
+          "description": "IMAP special-use flags to exclude from auto-discovery (only used when scan is null). Each entry is a backslash flag such as '\\Sent', '\\Drafts', '\\Trash'.",
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["\\Sent", "\\Drafts", "\\Trash"]
+        },
+        "skipNames": {
+          "description": "Folder names to exclude from auto-discovery (only used when scan is null), matched case-insensitively against the full folder path, e.g. 'outbox', 'notes'.",
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["outbox", "notes"]
+        },
+        "ignore": {
+          "description": "Folders that are NEVER scanned, inspected, or touched — even when named explicitly via --folder. Use for deliberate archives you never want automated (e.g. a trip folder).",
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "confidential": {
+          "description": "Sensitive folders (financial/tax/personal). Excluded from the default auto-scan and CSV export; reachable only by explicitly naming them in scan or --folder. Their content must NEVER be sent to any AI (the future local-LLM fallback must refuse them).",
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        }
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "description": "Default targets/sizes for the CLI modes, overridable per-run with --folder / --limit.",
+      "additionalProperties": false,
+      "properties": {
+        "folder": {
+          "description": "Folder used by --inspect / --cleanup when --folder is omitted.",
+          "type": "string",
+          "default": "INBOX"
+        },
+        "inspectLimit": {
+          "description": "--inspect default maximum number of messages to return.",
+          "type": "integer",
+          "minimum": 1,
+          "default": 30
+        },
+        "cleanupLimit": {
+          "description": "--cleanup sweep window size: how many recent messages it scans for stale promos.",
+          "type": "integer",
+          "minimum": 1,
+          "default": 500
+        }
+      }
+    },
+    "imap": {
+      "type": "object",
+      "description": "IMAP backend tuning.",
+      "additionalProperties": false,
+      "properties": {
+        "trashFallback": {
+          "description": "Folder to move deletions to if the server exposes no \\Trash special-use folder.",
+          "type": "string",
+          "default": "Deleted"
+        },
+        "bodyPreviewChars": {
+          "description": "How much decoded body text to keep as the preview that content rules match against.",
+          "type": "integer",
+          "minimum": 0,
+          "default": 2000
+        }
+      }
+    }
+  }
+}

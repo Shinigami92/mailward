@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./schemas/config.schema.json
+# mailward — example operational config. Copy this file to config.yaml and edit it for your mailbox:
+#   cp config.example.yaml config.yaml
+# config.yaml is gitignored (it holds your personal folder names).
+#
+# Connection & auth live in .env (CLIENT_ID, AUTHORITY, IMAP_HOST, IMAP_PORT, …).
+# Classification rules & their data live in rules.yaml.
+
+folders:
+  # Which folders the default run scans:
+  #   null (or omit) → auto-discover ALL selectable folders, minus the skips below.
+  #   a list         → scan ONLY these (confidential allowed only if named here).
+  scan: null
+
+  # Auto-discovery exclusions (only used when scan is null):
+  skipSpecialUse: ['\Sent', '\Drafts', '\Trash'] # IMAP special-use flags
+  skipNames: [outbox, notes] # by folder name (case-insensitive)
+
+  # Never scanned/touched, even if named explicitly (e.g. an archive you want left alone):
+  ignore:
+    - Archive/Old Photos
+
+  # Sensitive: excluded from auto-discovery, opt-in only via explicit scan/--folder,
+  # and never sent to any AI:
+  confidential:
+    - Archive/Banking
+    - Archive/Taxes
+
+# Default targets/sizes for the CLI modes (overridable per-run with --folder / --limit).
+defaults:
+  folder: INBOX # folder used by --inspect / --cleanup when --folder is omitted
+  inspectLimit: 30 # --inspect default max messages
+  cleanupLimit: 500 # --cleanup sweep window size (recent messages scanned)
+
+# IMAP backend tuning.
+imap:
+  trashFallback: Deleted # move deletions here if no \Trash special-use folder is found
+  bodyPreviewChars: 2000 # how much decoded body text to keep for rule matching

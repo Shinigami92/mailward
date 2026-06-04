@@ -1,0 +1,217 @@
+# yaml-language-server: $schema=./schemas/rules.schema.json
+# mailward — example classification rules. Copy this file to rules.yaml and edit it for your mailbox:
+#   cp rules.example.yaml rules.yaml
+# rules.yaml is gitignored (your lists reveal which senders/services you use).
+#
+# The `lists` below are PLACEHOLDERS — replace them with your own senders. The `patterns`,
+# `thresholds` and rule logic (`classify`/`cleanup`) are a generic starter set you can keep
+# or tweak.
+#
+# The patterns here use ENGLISH spam/scam terms. Spam is language-specific, so extend these
+# with keywords for whatever language(s) your junk mail arrives in.
+#
+# Patterns are regular expressions, compiled case-insensitively (the `i` flag). Single-quote
+# them so backslashes are literal — write `\b`, not `\\b`.
+# Thresholds are human-readable durations (parse-duration): `7d`, `30 days`, `1440 min`, `36h`.
+
+lists:
+  # Senders whose mail is legit but low-priority → just mark read (across all folders).
+  markReadDomains:
+    - newsletter.example.com
+    - notifications.example.org
+
+  # Sender domains to delete when found in Junk (throwaway spam hosts, or brands you
+  # have no account with).
+  spamDomains:
+    - spam-host.example
+    - unsolicited-brand.example
+
+  # Transactional/personal senders — NEVER deleted by --cleanup, even when old.
+  protectSenders:
+    - your-bank.example
+    - shop.example
+
+  # Promotional senders whose time-limited offers are safe to prune once stale.
+  promoSenders:
+    - deals.example.com
+
+  # "Read-once" senders: actively read when fresh, worthless after ~a month. Marked read
+  # on arrival, then pruned by --cleanup once older than thresholds.monthly.
+  monthlySenders:
+    - digest.example.com
+
+patterns:
+  # Classic spam subjects: gambling, pharma, scam finance, fake alerts.
+  spamSubject: '(casino|free spins|\bspins\b|\bbonus\b|jackpot|illuminati|viagra|weight\s?loss|lose weight|glp-?1|testosterone|sex life|depo-provera|catheter|qualify for compensation|\bloan\b|low[\s-]?interest|device will be locked|renew your subscription|you (have )?won|claim your prize|act now|urgent)'
+
+  # Credential/account-update phishing lures (matched against subject + body).
+  phishing: '(online[\s-]?banking|verify your (account|identity)|confirm your (account|identity|details)|account (has been |was )?(suspend|lock|limit)|update your (payment|account|billing|details)|unusual (sign[\s-]?in|activity)|password (will )?(expir|reset))'
+
+  # Advance-fee / lottery money scams — large sums legit personal mail rarely carries.
+  moneyScam: '(\bmillions?\b|(USD|EUR|GBP|US-?Dollars?|[€$£])\s?\d{1,3}([.,]\d{3}){2,})'
+
+  # Romance / charity / emotional-manipulation bait.
+  emotionalScam: '(soulmate|love of my life|(only|last) hope|\bwidow\b|inheritance|\bblessing\b|chosen one|god[\s-]?fearing|next of kin)'
+
+  # Brand-impersonation phishing & known scams (Apple/App Store, "as seen on TV", home warranty).
+  impersonation: '(appie|icloud|apple[\s-]?id|app\s?store|home warranty|as seen on tv)'
+
+  # Fake parcel/delivery notifications. Real couriers come from their own domains.
+  fakeParcel: '(your (parcel|package|delivery)|(parcel|package).{0,25}(on its way|out for delivery|could not be delivered|awaiting))'
+
+  # Subjects marking a message transactional/important → never delete in --cleanup.
+  protectSubject: '(invoice|receipt|order|booking|purchase|shipped|shipment|dispatched|delivered|confirmation)'
+
+  # Periodic, non-offer digests from promo senders (kept ~a month, not 7 days).
+  digestSubject: '((weekly|monthly) (report|update|digest|recap|summary))'
+
+  # Explicit "this offer has expired / ends soon" language → prune regardless of age.
+  expiry: '(last chance|ends\s+(today|soon|tonight)|expires?( (today|soon))?|prices?\s+going up|final days|last[-\s]?minute|ending soon|only today|sale ends)'
+
+thresholds:
+  # Promo offers go stale fast; read-once content / periodic digests kept ~a month.
+  stalePromo: 7d
+  monthly: 30d
+  digest: 30d
+  # Require an expired-offer mail to be ≥ this old before pruning, so an offer
+  # "valid for 24h" that arrived today is only removed from tomorrow.
+  promoExpiredMin: 1d
+
+# --- Rule logic (declarative DSL, compiled by src/classifier/dsl.ts) ---
+#
+# Each rule: { name, when: <condition>, then: keep|markRead|delete }. Rules are evaluated
+# top-to-bottom; the FIRST whose `when` matches wins. No match → keep.
+#
+# A condition is a leaf test or a combinator:
+#   leaf:        { field, op, value }   or   { field, op, ref }
+#   combinator:  { all: [..] } | { any: [..] } | { not: <condition> }
+# Fields: subject | fromAddress | fromName | content (subject+body) | folder (LEAF name) | age (hours).
+# Ops:    regex | includes | endsWith | endsWithAny | equals | '>' | '>=' .
+# String ops are case-insensitive (equals is exact); `ref` is a dotted path into the
+# lists/patterns/thresholds above (e.g. lists.spamDomains, patterns.phishing, thresholds.monthly).
+
+# Unread-path rules. Be PRECISE about deletes; unmatched mail stays kept.
+classify:
+  # Example: in a "GitHub" folder, mark bot notifications read but leave human activity unread.
+  - name: github-bot
+    when:
+      all:
+        - { field: folder, op: equals, value: GitHub }
+        - { field: fromName, op: includes, value: '[bot]' }
+    then: markRead
+
+  # Known low-priority newsletters/notifications → mark read wherever they land.
+  - name: known-newsletter
+    when: { field: fromAddress, op: endsWithAny, ref: lists.markReadDomains }
+    then: markRead
+
+  # --- Junk-only deletes (everything else in Junk stays kept) ---
+
+  # Disposable spam sender domains + random *.onmicrosoft.com spoofers.
+  - name: junk-spam-domain
+    when:
+      all:
+        - { field: folder, op: equals, value: Junk }
+        - any:
+            - { field: fromAddress, op: endsWithAny, ref: lists.spamDomains }
+            - { field: fromAddress, op: includes, value: onmicrosoft.com }
+    then: delete
+
+  - name: junk-spam-subject
+    when:
+      all:
+        - { field: folder, op: equals, value: Junk }
+        - { field: subject, op: regex, ref: patterns.spamSubject }
+    then: delete
+
+  # Bank/credential phishing.
+  - name: junk-phishing
+    when:
+      all:
+        - { field: folder, op: equals, value: Junk }
+        - { field: content, op: regex, ref: patterns.phishing }
+    then: delete
+
+  # Advance-fee / 419 money scams — catches even empty-subject ones via the body.
+  - name: junk-money-scam
+    when:
+      all:
+        - { field: folder, op: equals, value: Junk }
+        - { field: content, op: regex, ref: patterns.moneyScam }
+    then: delete
+
+  # Romance/charity/emotional-bait scams.
+  - name: junk-emotional-scam
+    when:
+      all:
+        - { field: folder, op: equals, value: Junk }
+        - { field: content, op: regex, ref: patterns.emotionalScam }
+    then: delete
+
+  # Brand-impersonation phishing / known scams.
+  - name: junk-impersonation
+    when:
+      all:
+        - { field: folder, op: equals, value: Junk }
+        - { field: subject, op: regex, ref: patterns.impersonation }
+    then: delete
+
+  # Fake parcel/delivery phishing.
+  - name: junk-fake-parcel
+    when:
+      all:
+        - { field: folder, op: equals, value: Junk }
+        - { field: subject, op: regex, ref: patterns.fakeParcel }
+    then: delete
+
+# --cleanup rules. Protect-list wins first; only promo/read-once senders are prunable.
+cleanup:
+  - name: protect-sender
+    when: { field: fromAddress, op: endsWithAny, ref: lists.protectSenders }
+    then: keep
+
+  - name: protect-subject
+    when: { field: subject, op: regex, ref: patterns.protectSubject }
+    then: keep
+
+  # Read-once content older than a month → prune.
+  - name: monthly-stale
+    when:
+      all:
+        - { field: fromAddress, op: endsWithAny, ref: lists.monthlySenders }
+        - { field: age, op: '>', ref: thresholds.monthly }
+    then: delete
+
+  # Periodic digest from a promo sender, now older than a month → prune.
+  - name: promo-digest-old
+    when:
+      all:
+        - { field: fromAddress, op: endsWithAny, ref: lists.promoSenders }
+        - { field: subject, op: regex, ref: patterns.digestSubject }
+        - { field: age, op: '>', ref: thresholds.digest }
+    then: delete
+
+  # Younger digest → keep (and stop, so the 7-day offer rules below don't grab it).
+  - name: promo-digest-young
+    when:
+      all:
+        - { field: fromAddress, op: endsWithAny, ref: lists.promoSenders }
+        - { field: subject, op: regex, ref: patterns.digestSubject }
+    then: keep
+
+  # Promotional sender + explicit expiry language → stale offer. Require ≥1 day old.
+  - name: promo-expired
+    when:
+      all:
+        - { field: fromAddress, op: endsWithAny, ref: lists.promoSenders }
+        - { field: age, op: '>=', ref: thresholds.promoExpiredMin }
+        - { field: content, op: regex, ref: patterns.expiry }
+    then: delete
+
+  # Promotional sender, no longer fresh → prune.
+  - name: promo-stale
+    when:
+      all:
+        - { field: fromAddress, op: endsWithAny, ref: lists.promoSenders }
+        - { field: age, op: '>', ref: thresholds.stalePromo }
+    then: delete

@@ -1,0 +1,220 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Shinigami92/mailward/blob/main/schemas/rules.schema.json",
+  "title": "mailward classification data",
+  "description": "Sender lists, regex patterns and age thresholds the rule engine matches against. Loaded by src/rules-data.ts; the rule logic that consumes them lives in src/rules.config.ts and src/cleanup.config.ts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["lists", "patterns", "thresholds", "classify", "cleanup"],
+  "properties": {
+    "lists": {
+      "type": "object",
+      "description": "Sender-domain lists. Each entry is matched as an address SUFFIX (m.fromAddress.endsWith(entry)), so 'amazon.de' also matches 'no-reply@amazon.de'.",
+      "additionalProperties": false,
+      "required": ["markReadDomains", "spamDomains", "protectSenders", "promoSenders", "monthlySenders"],
+      "properties": {
+        "markReadDomains": {
+          "description": "Senders whose mail is legit but low-priority → marked read across all folders (never deleted). Newsletters and recurring FYI notifications.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "spamDomains": {
+          "description": "Sender domains deleted when found in Junk. Throwaway spam hosts, plus brands the user has no account with (unsolicited).",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "protectSenders": {
+          "description": "Transactional/personal senders that --cleanup NEVER deletes, even when old (orders, invoices, receipts, forwarded personal mail). Overrides every prune rule.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "promoSenders": {
+          "description": "Promotional senders whose time-limited offers are safe for --cleanup to prune once stale (older than thresholds.stalePromo, or with expiry language).",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "monthlySenders": {
+          "description": "'Read-once' senders: actively read when fresh but worthless after ~a month. Marked read on arrival, then pruned by --cleanup once older than thresholds.monthly.",
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "patterns": {
+      "type": "object",
+      "description": "Named regular expressions. Each is compiled case-insensitively (the 'i' flag). Single-quote them in YAML so backslashes stay literal (write \\b, not \\\\b).",
+      "additionalProperties": false,
+      "required": ["spamSubject", "phishing", "moneyScam", "emotionalScam", "impersonation", "fakeParcel", "protectSubject", "digestSubject", "expiry"],
+      "properties": {
+        "spamSubject": {
+          "description": "Classic spam subjects (gambling, pharma, scam finance, fake alerts). Matched against the subject of Junk mail → delete.",
+          "type": "string",
+          "format": "regex"
+        },
+        "phishing": {
+          "description": "Credential/account-update phishing lures. Matched against subject + body of Junk mail → delete.",
+          "type": "string",
+          "format": "regex"
+        },
+        "moneyScam": {
+          "description": "Advance-fee / lottery money scams (large sums legit personal mail rarely carries). Matched against subject + body of Junk mail → delete.",
+          "type": "string",
+          "format": "regex"
+        },
+        "emotionalScam": {
+          "description": "Romance / charity / emotional-manipulation bait. Matched against subject + body of Junk mail → delete.",
+          "type": "string",
+          "format": "regex"
+        },
+        "impersonation": {
+          "description": "Brand-impersonation phishing & known scams (Apple/App Store, 'as seen on TV' offers, home warranty). Matched against the subject of Junk mail → delete.",
+          "type": "string",
+          "format": "regex"
+        },
+        "fakeParcel": {
+          "description": "Fake parcel/delivery notifications. Matched against the subject of Junk mail → delete. (Real DHL/Amazon come from their own domains and never land in Junk.)",
+          "type": "string",
+          "format": "regex"
+        },
+        "protectSubject": {
+          "description": "Subjects marking a message as transactional/important (invoice, order, booking, receipt …). --cleanup NEVER deletes a message whose subject matches.",
+          "type": "string",
+          "format": "regex"
+        },
+        "digestSubject": {
+          "description": "Periodic, non-offer digests from promo senders (e.g. a weekly activity/performance report). Not time-limited offers → kept ~a month (thresholds.digest), not pruned at the 7-day promo cadence.",
+          "type": "string",
+          "format": "regex"
+        },
+        "expiry": {
+          "description": "Explicit 'this offer expires / ends soon' language. From a promo sender it marks a stale offer for --cleanup to prune; also shown as the 'Expiry signal' column.",
+          "type": "string",
+          "format": "regex"
+        }
+      }
+    },
+    "thresholds": {
+      "type": "object",
+      "description": "Age thresholds as human-readable durations (parse-duration): '7d', '30 days', '1440 min', '36h' all work. Converted to hours internally.",
+      "additionalProperties": false,
+      "required": ["stalePromo", "monthly", "digest", "promoExpiredMin"],
+      "properties": {
+        "stalePromo": {
+          "description": "A promotional mail older than this is pruned by --cleanup (promo-stale).",
+          "type": ["string", "number"],
+          "default": "7d"
+        },
+        "monthly": {
+          "description": "'Read-once' mail (monthlySenders) older than this is pruned by --cleanup (monthly-stale).",
+          "type": ["string", "number"],
+          "default": "30d"
+        },
+        "digest": {
+          "description": "A periodic digest (digestSubject) from a promo sender older than this is pruned by --cleanup (promo-digest-old); younger ones are kept.",
+          "type": ["string", "number"],
+          "default": "30d"
+        },
+        "promoExpiredMin": {
+          "description": "Minimum age before an expiry-flagged promo is pruned, so an offer 'valid for 24h' that arrived today is only removed from tomorrow (promo-expired).",
+          "type": ["string", "number"],
+          "default": "1d"
+        }
+      }
+    },
+    "classify": {
+      "type": "array",
+      "description": "Unread-path rules, evaluated top-to-bottom; the first matching rule wins, no match → keep. Decides keep/markRead/delete.",
+      "items": { "$ref": "#/definitions/rule" }
+    },
+    "cleanup": {
+      "type": "array",
+      "description": "--cleanup prune rules for already-read mail, evaluated top-to-bottom; first match wins. Conservative: a protect rule (keep) should come first.",
+      "items": { "$ref": "#/definitions/rule" }
+    }
+  },
+  "definitions": {
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "when", "then"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Short identifier, surfaced as the decision reason in the result table."
+        },
+        "when": {
+          "$ref": "#/definitions/condition",
+          "description": "The condition that must hold for this rule to fire."
+        },
+        "then": {
+          "description": "Decision applied when `when` matches.",
+          "enum": ["keep", "markRead", "delete"]
+        }
+      }
+    },
+    "condition": {
+      "description": "A leaf test ({field, op, value|ref}) or a combinator (all / any / not).",
+      "oneOf": [
+        { "$ref": "#/definitions/leaf" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["all"],
+          "properties": {
+            "all": {
+              "type": "array",
+              "description": "Matches when ALL sub-conditions match (logical AND).",
+              "items": { "$ref": "#/definitions/condition" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["any"],
+          "properties": {
+            "any": {
+              "type": "array",
+              "description": "Matches when ANY sub-condition matches (logical OR).",
+              "items": { "$ref": "#/definitions/condition" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["not"],
+          "properties": {
+            "not": {
+              "$ref": "#/definitions/condition",
+              "description": "Matches when the sub-condition does NOT match (logical NOT)."
+            }
+          }
+        }
+      ]
+    },
+    "leaf": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "op"],
+      "description": "A single field test. Provide either `value` (inline literal) or `ref` (dotted path into lists/patterns/thresholds).",
+      "properties": {
+        "field": {
+          "description": "Message field to test. `content` = subject + body; `folder` = the LEAF folder name (so 'GitHub' matches 'Archive/GitHub'); `age` = age in hours.",
+          "enum": ["subject", "fromAddress", "fromName", "content", "folder", "age"]
+        },
+        "op": {
+          "description": "Comparison. String ops are case-insensitive except `equals` (exact). `regex` is case-insensitive. `endsWithAny` needs a list operand. `>`/`>=` need the numeric `age` field.",
+          "enum": ["regex", "includes", "endsWith", "endsWithAny", "equals", ">", ">="]
+        },
+        "value": {
+          "description": "Inline literal operand (string, number, or list of strings for endsWithAny)."
+        },
+        "ref": {
+          "type": "string",
+          "description": "Dotted path into this file's data, e.g. 'lists.markReadDomains', 'patterns.spamSubject', 'thresholds.monthly'."
+        }
+      }
+    }
+  }
+}
