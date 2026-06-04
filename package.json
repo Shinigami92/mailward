@@ -4,6 +4,12 @@
   "private": true,
   "type": "module",
   "description": "Rule-driven inbox auto-triage over IMAP (mark-read / delete) — a \"Pi-hole for your email\". Outlook/Hotmail supported first.",
+  "author": {
+    "name": "Christopher Quadflieg",
+    "email": "chrissi92@hotmail.de",
+    "url": "https://github.com/Shinigami92"
+  },
+  "license": "MIT",
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsc",

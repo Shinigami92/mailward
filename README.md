@@ -30,11 +30,11 @@ AI classifier and Grafana stats — see [Roadmap](#roadmap)).
   implemented yet** — such accounts are skipped with a warning.
 - **No app registration / no Azure account / no credit card needed** for Microsoft: we reuse
   **Mozilla Thunderbird's public OAuth client ID** (the same trick `mutt_oauth2.py` uses for personal
-  Outlook), so the consent screen shows *"Mozilla Thunderbird"*. Override it per account with your
+  Outlook), so the consent screen shows _"Mozilla Thunderbird"_. Override it per account with your
   own `clientId` if you register an Entra app. See [`src/vendors.ts`](src/vendors.ts).
 - A pluggable **`Classifier`** decides `keep` / `markRead` / `delete` per message — a deterministic
   **rule engine** (`rules.yaml`); an AI classifier can drop in behind the same interface later.
-- **Dry-run by default** — it only logs what it *would* do until you pass `--apply`.
+- **Dry-run by default** — it only logs what it _would_ do until you pass `--apply`.
 - `delete` = **move to the Deleted Items / Trash folder** (recoverable), never a hard delete.
 
 ## Setup
@@ -127,7 +127,7 @@ literal.
 > in `.vscode/extensions.json`) you get hover documentation, key autocomplete, and validation while
 > editing — every key is documented in the schema.
 
-The rule *logic* is also in `rules.yaml`, as a small declarative DSL under `classify:` (the unread
+The rule _logic_ is also in `rules.yaml`, as a small declarative DSL under `classify:` (the unread
 path) and `cleanup:` (the `--cleanup` prune). Rules are evaluated top-to-bottom; the **first match
 wins**; no match → `keep`. Each rule is `{ name, when: <condition>, then: keep|markRead|delete }`:
 
@@ -206,3 +206,7 @@ src/
   behind the existing per-vendor auth strategy; the engine is already provider-neutral.
 - **Own app registration** — if you ever get an Entra directory, register your own client and set
   an account's `clientId` in `accounts.yaml` so the consent screen shows your app instead of Thunderbird.
+
+## License
+
+[MIT](LICENSE) © Christopher Quadflieg
