@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { parse } from 'yaml';
+import { deepMerge } from './deep-merge.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 /** Project root (one level up from src/, or dist/ after a build). */
@@ -57,24 +58,17 @@ function asNumber(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
-function loadFileConfig(): FileConfig {
-  let raw: string;
-  try {
-    raw = readFileSync(configPath, 'utf8');
-  } catch {
-    throw new Error(
-      `Missing config.yaml at ${configPath}. Copy config.example.yaml to config.yaml and edit it (see README).`,
-    );
-  }
+interface RawConfig {
+  folders?: Partial<FoldersConfig>;
+  defaults?: Partial<DefaultsConfig>;
+  imap?: Partial<ImapConfig>;
+}
 
-  const parsed = (parse(raw) ?? {}) as {
-    folders?: Partial<FoldersConfig>;
-    defaults?: Partial<DefaultsConfig>;
-    imap?: Partial<ImapConfig>;
-  };
-  const folders = parsed.folders ?? {};
-  const defaults = parsed.defaults ?? {};
-  const imap = parsed.imap ?? {};
+/** Normalizes a raw parsed config object into a fully-defaulted {@link FileConfig}. */
+function normalize(raw: RawConfig): FileConfig {
+  const folders = raw.folders ?? {};
+  const defaults = raw.defaults ?? {};
+  const imap = raw.imap ?? {};
 
   return {
     folders: {
@@ -98,4 +92,32 @@ function loadFileConfig(): FileConfig {
   };
 }
 
-export const fileConfig: FileConfig = loadFileConfig();
+function parseConfigFile(): { base: RawConfig; accounts: Record<string, unknown> } {
+  let raw: string;
+  try {
+    raw = readFileSync(configPath, 'utf8');
+  } catch {
+    throw new Error(
+      `Missing config.yaml at ${configPath}. Copy config.example.yaml to config.yaml and edit it (see README).`,
+    );
+  }
+  const { accounts, ...base } = (parse(raw) ?? {}) as RawConfig & {
+    accounts?: Record<string, unknown>;
+  };
+  return { base, accounts: accounts ?? {} };
+}
+
+const { base: baseRawConfig, accounts: accountConfigOverrides } = parseConfigFile();
+
+/** The shared (account-agnostic) config — used as the back-compat default export. */
+export const fileConfig: FileConfig = normalize(baseRawConfig);
+
+/**
+ * Effective config for one account: the shared base with that account's `accounts.<id>`
+ * overrides deep-merged on top (objects merge; arrays/scalars replace). Falls back to the
+ * shared config when the account has no overrides.
+ */
+export function configFor(accountId: string): FileConfig {
+  const override = accountConfigOverrides[accountId];
+  return override === undefined ? fileConfig : normalize(deepMerge(baseRawConfig, override));
+}

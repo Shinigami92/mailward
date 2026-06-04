@@ -6,7 +6,7 @@ import {
 } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { startProgress } from './progress.js';
-import { fileConfig } from './file-config.js';
+import type { FileConfig } from './file-config.js';
 import type { MailMessage } from './types.js';
 
 /** IMAP connection details for one account (XOAUTH2 access token, or a password). */
@@ -17,10 +17,6 @@ export interface MailboxConnection {
   accessToken?: string;
   pass?: string;
 }
-
-// Auto-discovery exclusions, sourced from config.yaml (folders.skipSpecialUse / skipNames).
-const SKIP_SPECIAL_USE = new Set(fileConfig.folders.skipSpecialUse);
-const SKIP_NAMES = new Set(fileConfig.folders.skipNames); // already lower-cased by the loader
 
 /** Options for read-only folder inspection. */
 export interface InspectOptions {
@@ -74,7 +70,7 @@ interface ParsedBody {
  * Parses the raw message (mailparser) into a clean text preview + attachment flag.
  * Prefers the plain-text part; falls back to stripped HTML. Robust to malformed mail.
  */
-async function parseBody(source: Buffer | undefined): Promise<ParsedBody> {
+async function parseBody(source: Buffer | undefined, maxChars: number): Promise<ParsedBody> {
   if (!source) {
     return { preview: '', hasAttachments: false };
   }
@@ -83,7 +79,7 @@ async function parseBody(source: Buffer | undefined): Promise<ParsedBody> {
     const text =
       parsed.text ?? (typeof parsed.html === 'string' ? stripHtml(parsed.html) : '');
     return {
-      preview: text.replace(/\s+/g, ' ').trim().slice(0, fileConfig.imap.bodyPreviewChars),
+      preview: text.replace(/\s+/g, ' ').trim().slice(0, maxChars),
       hasAttachments: (parsed.attachments?.length ?? 0) > 0,
     };
   } catch {
@@ -135,13 +131,14 @@ async function fetchRange(
   folder: string,
   range: string | number[],
   useUid: boolean,
+  maxChars: number,
 ): Promise<MailMessage[]> {
   const messages: MailMessage[] = [];
   const total = Array.isArray(range) ? range.length : undefined;
   const progress = startProgress(`Fetching ${folder}`);
   try {
     for await (const msg of client.fetch(range, FETCH_QUERY, useUid ? { uid: true } : undefined)) {
-      const body = await parseBody(msg.source);
+      const body = await parseBody(msg.source, maxChars);
       messages.push(toMessage(msg, folder, body));
       progress.tick(messages.length, total);
     }
@@ -152,12 +149,16 @@ async function fetchRange(
 }
 
 /** Reads unseen messages from the currently-open `folder`. */
-async function readUnread(client: ImapFlow, folder: string): Promise<MailMessage[]> {
+async function readUnread(
+  client: ImapFlow,
+  folder: string,
+  config: FileConfig,
+): Promise<MailMessage[]> {
   const uids = await client.search({ seen: false }, { uid: true });
   if (!uids || uids.length === 0) {
     return [];
   }
-  return fetchRange(client, folder, uids, true);
+  return fetchRange(client, folder, uids, true, config.imap.bodyPreviewChars);
 }
 
 /**
@@ -170,8 +171,10 @@ async function inspectFolder(
   client: ImapFlow,
   folder: string,
   opts: InspectOptions,
+  config: FileConfig,
 ): Promise<MailMessage[]> {
-  const limit = opts.limit ?? fileConfig.defaults.inspectLimit;
+  const limit = opts.limit ?? config.defaults.inspectLimit;
+  const maxChars = config.imap.bodyPreviewChars;
 
   // Build an IMAP SEARCH from whichever filters were given (combined with AND).
   const criteria: SearchObject = {};
@@ -194,7 +197,7 @@ async function inspectFolder(
     if (!uids || uids.length === 0) {
       return [];
     }
-    return fetchRange(client, folder, uids.slice(-limit), true);
+    return fetchRange(client, folder, uids.slice(-limit), true, maxChars);
   }
 
   // No filters → the most recent `limit` messages (by sequence, so big folders stay cheap).
@@ -203,24 +206,26 @@ async function inspectFolder(
     return [];
   }
   const start = Math.max(1, total - limit + 1);
-  return fetchRange(client, folder, `${start}:*`, false);
+  return fetchRange(client, folder, `${start}:*`, false, maxChars);
 }
 
 /** All selectable folders, minus Sent/Drafts/Trash and non-selectable (\Noselect) ones. */
-async function discoverFolders(client: ImapFlow): Promise<string[]> {
+async function discoverFolders(client: ImapFlow, config: FileConfig): Promise<string[]> {
+  const skipSpecialUse = new Set(config.folders.skipSpecialUse);
+  const skipNames = new Set(config.folders.skipNames); // already lower-cased by the loader
   const boxes = await client.list();
   return boxes
     .filter((b) => !b.flags.has('\\Noselect'))
-    .filter((b) => !(b.specialUse && SKIP_SPECIAL_USE.has(b.specialUse)))
-    .filter((b) => !SKIP_NAMES.has(b.path.toLowerCase()))
+    .filter((b) => !(b.specialUse && skipSpecialUse.has(b.specialUse)))
+    .filter((b) => !skipNames.has(b.path.toLowerCase()))
     .map((b) => b.path);
 }
 
 /** Finds the Trash/Deleted folder via its special-use flag, with a sane fallback. */
-async function findTrashPath(client: ImapFlow): Promise<string> {
+async function findTrashPath(client: ImapFlow, config: FileConfig): Promise<string> {
   const mailboxes = await client.list();
   const trash = mailboxes.find((mb) => mb.specialUse === '\\Trash');
-  return trash?.path ?? fileConfig.imap.trashFallback;
+  return trash?.path ?? config.imap.trashFallback;
 }
 
 /**
@@ -229,6 +234,7 @@ async function findTrashPath(client: ImapFlow): Promise<string> {
  */
 export async function withMailbox<T>(
   conn: MailboxConnection,
+  config: FileConfig,
   fn: (mailbox: Mailbox) => Promise<T>,
 ): Promise<T> {
   const client = new ImapFlow({
@@ -244,16 +250,16 @@ export async function withMailbox<T>(
 
   await client.connect();
   try {
-    const trashPath = await findTrashPath(client);
+    const trashPath = await findTrashPath(client, config);
     const mailbox: Mailbox = {
-      discoverFolders: () => discoverFolders(client),
+      discoverFolders: () => discoverFolders(client, config),
       process: async (folder, body) => {
         const lock = await client.getMailboxLock(folder);
         try {
           const session: FolderSession = {
             folder,
-            listUnread: () => readUnread(client, folder),
-            inspect: (opts) => inspectFolder(client, folder, opts),
+            listUnread: () => readUnread(client, folder, config),
+            inspect: (opts) => inspectFolder(client, folder, opts, config),
             markRead: async (id) => {
               await client.messageFlagsAdd(id, ['\\Seen'], { uid: true });
             },

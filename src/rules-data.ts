@@ -3,6 +3,9 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import parseDuration from 'parse-duration';
+import { compileRules, type ResolveRef } from './classifier/dsl.js';
+import type { Rule } from './classifier/rule-classifier.js';
+import { deepMerge } from './deep-merge.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 /** Project root (one level up from src/, or dist/ after a build). */
@@ -57,6 +60,15 @@ interface RawRulesFile {
   thresholds?: Record<string, unknown>;
   classify?: unknown;
   cleanup?: unknown;
+  accounts?: Record<string, unknown>;
+}
+
+/** A compiled, ready-to-run rule bundle for one account (or the shared base). */
+export interface RuleSet {
+  classify: Rule[];
+  cleanup: Rule[];
+  /** The compiled expiry pattern, for the --cleanup "Expiry signal" display column. */
+  expiryPattern: RegExp;
 }
 
 /** Reads a required string[] list, failing loudly if it is missing/mistyped. */
@@ -135,25 +147,52 @@ function loadRulesData(parsed: RawRulesFile): RulesData {
   };
 }
 
+/**
+ * Builds a `ref` resolver bound to a specific {@link RulesData}: resolves a dotted path
+ * (e.g. "lists.markReadDomains", "patterns.spamSubject", "thresholds.monthly"). Throws on an
+ * unknown path.
+ */
+function makeResolveRef(data: RulesData): ResolveRef {
+  return (path) =>
+    path.split('.').reduce<unknown>((node, key) => {
+      if (node !== null && typeof node === 'object' && key in node) {
+        return (node as Record<string, unknown>)[key];
+      }
+      throw new Error(`rules.yaml: unknown ref "${path}".`);
+    }, data);
+}
+
+/** Compiles a raw rules object (lists/patterns/thresholds + rule arrays) into a {@link RuleSet}. */
+function buildRuleSet(raw: RawRulesFile): RuleSet {
+  const data = loadRulesData(raw);
+  const resolve = makeResolveRef(data);
+  return {
+    classify: compileRules(raw.classify, resolve),
+    cleanup: compileRules(raw.cleanup, resolve),
+    expiryPattern: data.patterns.expiry,
+  };
+}
+
 const parsedFile = parseRulesFile();
+const { accounts: ruleAccountOverrides = {}, ...baseRawRules } = parsedFile;
 
-export const rulesData: RulesData = loadRulesData(parsedFile);
+/** Shared (account-agnostic) compiled data + rules — the back-compat default exports. */
+export const rulesData: RulesData = loadRulesData(baseRawRules);
+const baseRuleSet: RuleSet = buildRuleSet(baseRawRules);
 
-/** The raw declarative rule arrays, compiled into predicates by the DSL layer. */
+/** The shared raw rule arrays and a resolver bound to the shared data (back-compat). */
 export const rawRules: RawRules = {
-  classify: parsedFile.classify,
-  cleanup: parsedFile.cleanup,
+  classify: baseRawRules.classify,
+  cleanup: baseRawRules.cleanup,
 };
+export const resolveRef: ResolveRef = makeResolveRef(rulesData);
 
 /**
- * Resolves a dotted `ref` path (e.g. "lists.markReadDomains", "patterns.spamSubject",
- * "thresholds.monthly") against the loaded {@link rulesData}. Throws on an unknown path.
+ * Effective compiled rules for one account: the shared base with that account's
+ * `accounts.<id>` overrides deep-merged on top (objects merge; arrays/scalars replace).
+ * Falls back to the shared rules when the account has no overrides.
  */
-export function resolveRef(path: string): unknown {
-  return path.split('.').reduce<unknown>((node, key) => {
-    if (node !== null && typeof node === 'object' && key in node) {
-      return (node as Record<string, unknown>)[key];
-    }
-    throw new Error(`rules.yaml: unknown ref "${path}".`);
-  }, rulesData);
+export function rulesFor(accountId?: string): RuleSet {
+  const override = accountId === undefined ? undefined : ruleAccountOverrides[accountId];
+  return override === undefined ? baseRuleSet : buildRuleSet(deepMerge(baseRawRules, override));
 }

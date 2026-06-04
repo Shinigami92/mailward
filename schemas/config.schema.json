@@ -86,6 +86,19 @@
           "default": 2000
         }
       }
+    },
+    "accounts": {
+      "type": "object",
+      "description": "Per-account config overrides, keyed by the account id from accounts.yaml. Each block deep-merges over the shared config above (nested objects merge; arrays/scalars replace), so you can override just one key — e.g. a Gmail account's folders.confidential or defaults.folder.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "folders": { "type": "object" },
+          "defaults": { "type": "object" },
+          "imap": { "type": "object" }
+        }
+      }
     }
   }
 }

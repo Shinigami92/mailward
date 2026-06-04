@@ -130,6 +130,21 @@
       "type": "array",
       "description": "--cleanup prune rules for already-read mail, evaluated top-to-bottom; first match wins. Conservative: a protect rule (keep) should come first.",
       "items": { "$ref": "#/definitions/rule" }
+    },
+    "accounts": {
+      "type": "object",
+      "description": "Per-account rule overrides, keyed by the account id from accounts.yaml. Each block deep-merges over the shared rules above (nested objects merge; arrays/scalars replace) — override e.g. one list, one pattern, a threshold, or replace the classify/cleanup arrays for that account.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "lists": { "type": "object" },
+          "patterns": { "type": "object" },
+          "thresholds": { "type": "object" },
+          "classify": { "type": "array" },
+          "cleanup": { "type": "array" }
+        }
+      }
     }
   },
   "definitions": {

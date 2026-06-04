@@ -36,3 +36,14 @@ defaults:
 imap:
   trashFallback: Deleted # move deletions here if no \Trash special-use folder is found
   bodyPreviewChars: 2000 # how much decoded body text to keep for rule matching
+
+# Per-account overrides (optional), keyed by the account id from accounts.yaml. Each block
+# deep-merges over everything above (nested objects merge; arrays/scalars replace), so you can
+# override a single key without repeating the rest.
+# accounts:
+#   work-gmail:
+#     defaults:
+#       folder: INBOX
+#     folders:
+#       confidential:
+#         - Finance

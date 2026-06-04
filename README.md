@@ -106,7 +106,7 @@ pnpm dev --inspect --folder INBOX --since 2026-05-01  # only mail on/after a dat
 `--cleanup` prunes **already-read, stale promotional mail** from a folder (INBOX by default) —
 expired offers, finished sales, time-limited tickets. It **only touches read mail**, only ever
 **moves to Deleted Items** (recoverable), and is governed by a conservative protect-list +
-promo-sender list in [`src/cleanup.config.ts`](src/cleanup.config.ts) (edit those to tune).
+promo-sender list under `cleanup:` in [`rules.yaml`](rules.example.yaml) (edit those to tune).
 
 ```sh
 pnpm dev --cleanup --since 2026-05-01            # dry-run: list what it WOULD delete
@@ -154,8 +154,14 @@ A **condition** is either a leaf test or a combinator:
 folder name, so `GitHub` matches `Archive/GitHub`), `age` (in hours).
 **Ops:** `regex`, `includes`, `endsWith`, `endsWithAny` (list operand), `equals`, `>`, `>=`. String
 ops are case-insensitive except `equals` (exact); `regex` is case-insensitive; `>`/`>=` take the
-numeric `age` field. The interpreter is `src/classifier/dsl.ts` (~50 lines); the thin wiring is in
-`src/rules.config.ts` and `src/cleanup.config.ts`.
+numeric `age` field. The interpreter is `src/classifier/dsl.ts`; loading + compiling (and applying
+per-account overrides) is in `src/rules-data.ts`.
+
+**Per-account overrides.** Both `config.yaml` and `rules.yaml` accept an optional top-level
+`accounts:` map keyed by the account id from `accounts.yaml`. Each block **deep-merges** over the
+shared config (nested objects merge; arrays and scalars replace), so one account can have its own
+`folders.confidential`, swap a list/pattern/threshold, or replace the `classify`/`cleanup` arrays —
+while everything else stays shared.
 
 > PoC limitations of the IMAP backend: `importance` defaults to `normal` (IMAP envelopes don't carry
 > it), so there's no `importance` field yet. `subject`, `fromAddress`, `fromName`, `content` and
@@ -175,9 +181,9 @@ src/
   classifier/
     rule-classifier.ts      rule engine (first-match-wins) + folderName / ageInHours helpers
     dsl.ts                  declarative condition DSL → compiles rules.yaml entries into predicates
-  rules-data.ts             loads rules.yaml → lists / patterns / thresholds + raw rule arrays + resolveRef
-  rules.config.ts           compiles the `classify:` rules from rules.yaml
-  cleanup.config.ts         compiles the `cleanup:` rules from rules.yaml + expirySignal()
+  rules-data.ts             loads rules.yaml → compiled rules per account (rulesFor) + shared base
+  file-config.ts            loads config.yaml → FileConfig per account (configFor) + shared base
+  deep-merge.ts             deep-merge util for per-account overrides (objects merge; arrays replace)
   logger.ts
 ```
 

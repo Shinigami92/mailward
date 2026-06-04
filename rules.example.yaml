@@ -215,3 +215,11 @@ cleanup:
         - { field: fromAddress, op: endsWithAny, ref: lists.promoSenders }
         - { field: age, op: '>', ref: thresholds.stalePromo }
     then: delete
+
+# Per-account rule overrides (optional), keyed by the account id from accounts.yaml. Each block
+# deep-merges over everything above. Example — give one account its own newsletter senders:
+# accounts:
+#   work-gmail:
+#     lists:
+#       markReadDomains:
+#         - newsletters.example.net

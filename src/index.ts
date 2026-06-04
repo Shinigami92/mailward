@@ -9,10 +9,9 @@ import {
   type MailboxConnection,
 } from './imap.js';
 import { RuleClassifier, ageInHours } from './classifier/rule-classifier.js';
-import { rules } from './rules.config.js';
-import { cleanupRules, expirySignal } from './cleanup.config.js';
+import { rulesFor, type RuleSet } from './rules-data.js';
 import { isConfidential, isIgnored } from './folders.config.js';
-import { fileConfig } from './file-config.js';
+import { configFor, type FileConfig } from './file-config.js';
 import { toCsv } from './csv.js';
 import { markdownTable, truncate } from './table.js';
 import { log } from './logger.js';
@@ -73,6 +72,11 @@ function dateCol(m: MailMessage): string {
 /** Most recent first. receivedDateTime is ISO-8601, so a string compare is chronological. */
 function byNewestFirst(a: MailMessage, b: MailMessage): number {
   return b.receivedDateTime.localeCompare(a.receivedDateTime);
+}
+
+/** The expiry phrase that makes a message look stale (for display), or '' if none. */
+function expirySignal(m: MailMessage, pattern: RegExp): string {
+  return `${m.subject} ${m.bodyPreview}`.match(pattern)?.[0] ?? '';
 }
 
 type Tally = Record<Decision, number>;
@@ -168,18 +172,20 @@ const EXPORT_COLUMNS = [
  * Folders for the default auto-scan. Always drops `ignore` folders; drops `confidential`
  * ones too unless the user listed folders explicitly (opt-in via the scan list).
  */
-async function scanFolders(mailbox: Mailbox): Promise<string[]> {
-  const explicit = fileConfig.folders.scan != null;
-  const discovered = fileConfig.folders.scan ?? (await mailbox.discoverFolders());
-  return discovered.filter((f) => !isIgnored(f) && (explicit || !isConfidential(f)));
+async function scanFolders(mailbox: Mailbox, config: FileConfig): Promise<string[]> {
+  const { folders } = config;
+  const explicit = folders.scan != null;
+  const discovered = folders.scan ?? (await mailbox.discoverFolders());
+  return discovered.filter((f) => !isIgnored(f, folders) && (explicit || !isConfidential(f, folders)));
 }
 
 /** Collects unread mail from one account's mailbox as labelling rows (the training-data loop). */
 async function exportRows(
   mailbox: Mailbox,
   account: ResolvedAccount,
+  config: FileConfig,
 ): Promise<Array<Record<string, string>>> {
-  const folders = await scanFolders(mailbox);
+  const folders = await scanFolders(mailbox, config);
   log.info(`Folders: ${folders.join(', ')}`);
   const messages = await collectUnread(mailbox, folders);
 
@@ -198,13 +204,18 @@ async function exportRows(
 
 const ACTION_COLUMNS = ['Folder', 'Date', 'From', 'Subject', 'Action', 'Rule'] as const;
 
-async function processMailbox(mailbox: Mailbox, cli: Cli): Promise<void> {
-  const folders = await scanFolders(mailbox);
+async function processMailbox(
+  mailbox: Mailbox,
+  cli: Cli,
+  config: FileConfig,
+  ruleset: RuleSet,
+): Promise<void> {
+  const folders = await scanFolders(mailbox, config);
   log.info(`Folders: ${folders.join(', ')}`);
 
   const state: RunState = {
     cli,
-    classifier: new RuleClassifier(rules),
+    classifier: new RuleClassifier(ruleset.classify),
     tally: { keep: 0, markRead: 0, delete: 0 },
     scanned: 0,
     actions: [],
@@ -245,9 +256,9 @@ async function processMailbox(mailbox: Mailbox, cli: Cli): Promise<void> {
 }
 
 /** Read-only inspection of one folder. Prints JSON to stdout; modifies nothing. */
-async function inspect(mailbox: Mailbox, cli: Cli): Promise<void> {
-  const folder = cli.folder ?? fileConfig.defaults.folder;
-  if (isIgnored(folder)) {
+async function inspect(mailbox: Mailbox, cli: Cli, config: FileConfig): Promise<void> {
+  const folder = cli.folder ?? config.defaults.folder;
+  if (isIgnored(folder, config.folders)) {
     log.warn(`Folder "${folder}" is configured as ignore — not inspecting.`);
     return;
   }
@@ -270,19 +281,24 @@ async function inspect(mailbox: Mailbox, cli: Cli): Promise<void> {
  */
 const CLEANUP_COLUMNS = ['Folder', 'Date', 'From', 'Subject', 'Rule', 'Expiry signal'] as const;
 
-async function cleanup(mailbox: Mailbox, cli: Cli): Promise<void> {
-  const folder = cli.folder ?? fileConfig.defaults.folder;
-  if (isIgnored(folder)) {
+async function cleanup(
+  mailbox: Mailbox,
+  cli: Cli,
+  config: FileConfig,
+  ruleset: RuleSet,
+): Promise<void> {
+  const folder = cli.folder ?? config.defaults.folder;
+  if (isIgnored(folder, config.folders)) {
     log.warn(`Folder "${folder}" is configured as ignore — not cleaning.`);
     return;
   }
-  const classifier = new RuleClassifier(cleanupRules);
+  const classifier = new RuleClassifier(ruleset.cleanup);
 
   await mailbox.process(folder, async (session) => {
     // Cleanup wants to sweep the whole window, not inspect's small default.
     const messages = await session.inspect({
       since: cli.since,
-      limit: cli.limit ?? fileConfig.defaults.cleanupLimit,
+      limit: cli.limit ?? config.defaults.cleanupLimit,
     });
 
     // Only act on READ mail; collect matches, then sort newest-first for display.
@@ -306,7 +322,7 @@ async function cleanup(mailbox: Mailbox, cli: Cli): Promise<void> {
         truncate(message.fromAddress, 32),
         truncate(message.subject || '(no subject)', 50),
         reason,
-        expirySignal(message),
+        expirySignal(message, ruleset.expiryPattern),
       ]);
 
       if (cli.apply) {
@@ -391,8 +407,9 @@ async function main(): Promise<void> {
       if (!conn) {
         continue;
       }
-      await withMailbox(conn, async (mailbox) => {
-        allRows.push(...(await exportRows(mailbox, account)));
+      const config = configFor(account.id);
+      await withMailbox(conn, config, async (mailbox) => {
+        allRows.push(...(await exportRows(mailbox, account, config)));
       });
     }
     await writeFile(cli.export, toCsv(EXPORT_COLUMNS, allRows), 'utf8');
@@ -416,14 +433,16 @@ async function main(): Promise<void> {
     if (!conn) {
       continue;
     }
-    await withMailbox(conn, async (mailbox) => {
+    const config = configFor(account.id);
+    const ruleset = rulesFor(account.id);
+    await withMailbox(conn, config, async (mailbox) => {
       if (cli.inspect) {
-        return inspect(mailbox, cli);
+        return inspect(mailbox, cli, config);
       }
       if (cli.cleanup) {
-        return cleanup(mailbox, cli);
+        return cleanup(mailbox, cli, config, ruleset);
       }
-      return processMailbox(mailbox, cli);
+      return processMailbox(mailbox, cli, config, ruleset);
     });
   }
 }
