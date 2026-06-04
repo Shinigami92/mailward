@@ -116,10 +116,11 @@ pnpm dev --cleanup --since 2026-05-01 --apply    # actually move stale promos to
 ## Writing rules
 
 Most tuning is **data**, not code: the sender lists, regex patterns and age thresholds the rules
-match against live in **`rules.yaml`** (loaded by `src/rules-data.ts`). Add a newsletter domain, a
-spam pattern, or change a threshold (`7d`, `30 days`, `1440 min` — any human duration) there, no
-rebuild of the rule logic needed. Patterns are compiled case-insensitively; single-quote them so
-backslashes stay literal.
+match against live under the **`refs:`** section of **`rules.yaml`** (loaded by `src/rules-data.ts`)
+— `refs.lists.*`, `refs.patterns.*`, `refs.thresholds.*`. Add a newsletter domain, a spam pattern,
+or change a threshold (`7d`, `30 days`, `1440 min` — any human duration) there, no rebuild of the
+rule logic needed. Patterns are compiled case-insensitively; single-quote them so backslashes stay
+literal.
 
 > Both `config.yaml` and `rules.yaml` carry a `# yaml-language-server: $schema=…` modeline pointing
 > at the JSON Schemas in [`schemas/`](schemas). With the **Red Hat YAML** VSCode extension (recommended
@@ -146,8 +147,9 @@ classify:
 
 A **condition** is either a leaf test or a combinator:
 
-- leaf: `{ field, op, value }` (inline literal) or `{ field, op, ref }` (dotted path into
-  `lists`/`patterns`/`thresholds` in the same file).
+- leaf: `{ field, op, value }` (inline literal) or `{ field, op, ref }`, where `ref` is
+  `<bucket>.<name>` naming an entry under the file's `refs:` section — `lists.*` (sender lists),
+  `patterns.*` (regexes), or `thresholds.*` (ages in hours), e.g. `ref: patterns.spamSubject`.
 - combinator: `{ all: [...] }` (AND), `{ any: [...] }` (OR), `{ not: <condition> }`.
 
 **Fields:** `subject`, `fromAddress`, `fromName`, `content` (subject + body), `folder` (the LEAF

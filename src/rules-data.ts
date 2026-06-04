@@ -54,10 +54,14 @@ export interface RawRules {
   cleanup: unknown;
 }
 
-interface RawRulesFile {
+interface RawRefs {
   lists?: Record<string, unknown>;
   patterns?: Record<string, unknown>;
   thresholds?: Record<string, unknown>;
+}
+
+interface RawRulesFile {
+  refs?: RawRefs;
   classify?: unknown;
   cleanup?: unknown;
   accounts?: Record<string, unknown>;
@@ -75,7 +79,7 @@ export interface RuleSet {
 function list(source: Record<string, unknown> | undefined, key: string): string[] {
   const value = source?.[key];
   if (!Array.isArray(value)) {
-    throw new Error(`rules.yaml: lists.${key} must be a list of strings.`);
+    throw new Error(`rules.yaml: refs.lists.${key} must be a list of strings.`);
   }
   return value.map(String);
 }
@@ -84,12 +88,12 @@ function list(source: Record<string, unknown> | undefined, key: string): string[
 function pattern(source: Record<string, unknown> | undefined, key: string): RegExp {
   const value = source?.[key];
   if (typeof value !== 'string') {
-    throw new Error(`rules.yaml: patterns.${key} must be a regex string.`);
+    throw new Error(`rules.yaml: refs.patterns.${key} must be a regex string.`);
   }
   try {
     return new RegExp(value, 'i');
   } catch (error) {
-    throw new Error(`rules.yaml: patterns.${key} is not a valid regex: ${String(error)}`);
+    throw new Error(`rules.yaml: refs.patterns.${key} is not a valid regex: ${String(error)}`);
   }
 }
 
@@ -97,11 +101,13 @@ function pattern(source: Record<string, unknown> | undefined, key: string): RegE
 function hours(source: Record<string, unknown> | undefined, key: string): number {
   const value = source?.[key];
   if (typeof value !== 'string' && typeof value !== 'number') {
-    throw new Error(`rules.yaml: thresholds.${key} must be a duration like "7d".`);
+    throw new Error(`rules.yaml: refs.thresholds.${key} must be a duration like "7d".`);
   }
   const result = parseDuration(String(value), 'h');
   if (result == null) {
-    throw new Error(`rules.yaml: thresholds.${key} is not a valid duration: "${String(value)}".`);
+    throw new Error(
+      `rules.yaml: refs.thresholds.${key} is not a valid duration: "${String(value)}".`,
+    );
   }
   return result;
 }
@@ -119,30 +125,31 @@ function parseRulesFile(): RawRulesFile {
 }
 
 function loadRulesData(parsed: RawRulesFile): RulesData {
+  const refs = parsed.refs ?? {};
   return {
     lists: {
-      markReadDomains: list(parsed.lists, 'markReadDomains'),
-      spamDomains: list(parsed.lists, 'spamDomains'),
-      protectSenders: list(parsed.lists, 'protectSenders'),
-      promoSenders: list(parsed.lists, 'promoSenders'),
-      monthlySenders: list(parsed.lists, 'monthlySenders'),
+      markReadDomains: list(refs.lists, 'markReadDomains'),
+      spamDomains: list(refs.lists, 'spamDomains'),
+      protectSenders: list(refs.lists, 'protectSenders'),
+      promoSenders: list(refs.lists, 'promoSenders'),
+      monthlySenders: list(refs.lists, 'monthlySenders'),
     },
     patterns: {
-      spamSubject: pattern(parsed.patterns, 'spamSubject'),
-      phishing: pattern(parsed.patterns, 'phishing'),
-      moneyScam: pattern(parsed.patterns, 'moneyScam'),
-      emotionalScam: pattern(parsed.patterns, 'emotionalScam'),
-      impersonation: pattern(parsed.patterns, 'impersonation'),
-      fakeParcel: pattern(parsed.patterns, 'fakeParcel'),
-      protectSubject: pattern(parsed.patterns, 'protectSubject'),
-      digestSubject: pattern(parsed.patterns, 'digestSubject'),
-      expiry: pattern(parsed.patterns, 'expiry'),
+      spamSubject: pattern(refs.patterns, 'spamSubject'),
+      phishing: pattern(refs.patterns, 'phishing'),
+      moneyScam: pattern(refs.patterns, 'moneyScam'),
+      emotionalScam: pattern(refs.patterns, 'emotionalScam'),
+      impersonation: pattern(refs.patterns, 'impersonation'),
+      fakeParcel: pattern(refs.patterns, 'fakeParcel'),
+      protectSubject: pattern(refs.patterns, 'protectSubject'),
+      digestSubject: pattern(refs.patterns, 'digestSubject'),
+      expiry: pattern(refs.patterns, 'expiry'),
     },
     thresholds: {
-      stalePromo: hours(parsed.thresholds, 'stalePromo'),
-      monthly: hours(parsed.thresholds, 'monthly'),
-      digest: hours(parsed.thresholds, 'digest'),
-      promoExpiredMin: hours(parsed.thresholds, 'promoExpiredMin'),
+      stalePromo: hours(refs.thresholds, 'stalePromo'),
+      monthly: hours(refs.thresholds, 'monthly'),
+      digest: hours(refs.thresholds, 'digest'),
+      promoExpiredMin: hours(refs.thresholds, 'promoExpiredMin'),
     },
   };
 }
