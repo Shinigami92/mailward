@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=./schemas/accounts.schema.json
+# mailward — example accounts. Copy this file to accounts.yaml and edit it:
+#   cp accounts.example.yaml accounts.yaml
+# accounts.yaml is gitignored (it holds your mailbox addresses).
+#
+# Each account picks a `vendor` (microsoft | gmail | generic) whose connection + auth
+# defaults come from the code vendor registry (src/vendors.ts); override any of them per
+# account. `id` is a stable lowercase key used for the cache directory (<CACHE_DIR>/<id>/),
+# the per-account override key in config.yaml / rules.yaml, and the section header in output.
+#
+# Today only `microsoft` (Outlook/Hotmail, OAuth) is wired; gmail/generic are recognized but
+# their login isn't implemented yet, so such accounts are skipped with a warning.
+
+- id: personal
+  vendor: microsoft
+  username: you@hotmail.com
+  # optional overrides (vendor defaults shown):
+  # imapHost: outlook.office365.com
+  # imapPort: 993
+  # clientId: <your-own-entra-app-id>   # default: Mozilla Thunderbird public client
+  # (token cache lives at <CACHE_DIR>/<id>/ — derived from the id, not configurable)
+
+# Duplicate vendors are fine — just give each a distinct id:
+# - id: work-gmail
+#   vendor: gmail
+#   username: you@gmail.com
+#   passwordEnv: WORK_GMAIL_PASSWORD    # secret value lives in .env (gmail login not implemented yet)

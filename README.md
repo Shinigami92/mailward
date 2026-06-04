@@ -13,21 +13,27 @@ AI classifier and Grafana stats — see [Roadmap](#roadmap)).
 
 ## How it works
 
-- Reads/edits the mailbox over **IMAP** (defaults to `outlook.office365.com`, configurable via
-  `IMAP_HOST`/`IMAP_PORT`) using **`imapflow`**, scanning
-  **multiple folders** — Inbox, Junk, and custom folders like `GitHub`/`Meetup`. By default it
-  auto-discovers every selectable folder except Sent/Drafts/Trash; folder selection (scan list,
-  skips, ignore, confidential) is configured in **`config.yaml`**.
-- Authenticates with **OAuth2 (XOAUTH2)** — personal accounts no longer allow basic-auth IMAP.
-  It uses the **authorization-code flow with manual code paste**: you sign in once in a browser,
-  paste back the redirect URL, and a refresh token is cached on disk so later runs are unattended.
-- **No app registration / no Azure account / no credit card needed.** Microsoft now requires a
-  paid-signup or gated dev-program directory to register your own app, so we reuse **Mozilla
-  Thunderbird's public OAuth client ID** (the same trick `mutt_oauth2.py` uses for personal
-  Outlook). Consequence: the consent screen shows *"Mozilla Thunderbird"*. See [`config.ts`](src/config.ts).
-- A pluggable **`Classifier`** decides `keep` / `markRead` / `delete` per message. The PoC ships a
-  deterministic **rule engine** (`src/rules.config.ts`); an AI classifier can drop in behind the
-  same interface later.
+- **Multiple accounts, one run.** Accounts are declared in **`accounts.yaml`**; `pnpm dev`,
+  `--inspect` and `--cleanup` process every account in turn (per-account output sections). Each
+  account picks a **vendor** (`microsoft` | `gmail` | `generic`) whose connection + auth defaults
+  come from the code **vendor registry** (`src/vendors.ts`) and can be overridden per account.
+  Run just one with `--account <id>`.
+- Reads/edits each mailbox over **IMAP** using **`imapflow`**, scanning **multiple folders** — Inbox,
+  Junk, and custom folders like `GitHub`/`Meetup`. By default it auto-discovers every selectable
+  folder except Sent/Drafts/Trash; folder selection (scan list, skips, ignore, confidential) is
+  configured in **`config.yaml`**.
+- **Auth is the only vendor-specific part**, isolated behind a per-vendor strategy. **Microsoft /
+  Outlook is wired today** via **OAuth2 (XOAUTH2)** — personal accounts no longer allow basic-auth
+  IMAP — using the **authorization-code flow with manual code paste**: you sign in once in a browser,
+  paste back the redirect URL, and a refresh token is cached per account (`.cache/<id>/msal.json`)
+  so later runs are unattended. `gmail`/`generic` (password / app-password) are recognized but **not
+  implemented yet** — such accounts are skipped with a warning.
+- **No app registration / no Azure account / no credit card needed** for Microsoft: we reuse
+  **Mozilla Thunderbird's public OAuth client ID** (the same trick `mutt_oauth2.py` uses for personal
+  Outlook), so the consent screen shows *"Mozilla Thunderbird"*. Override it per account with your
+  own `clientId` if you register an Entra app. See [`src/vendors.ts`](src/vendors.ts).
+- A pluggable **`Classifier`** decides `keep` / `markRead` / `delete` per message — a deterministic
+  **rule engine** (`rules.yaml`); an AI classifier can drop in behind the same interface later.
 - **Dry-run by default** — it only logs what it *would* do until you pass `--apply`.
 - `delete` = **move to the Deleted Items / Trash folder** (recoverable), never a hard delete.
 
@@ -37,19 +43,20 @@ AI classifier and Grafana stats — see [Roadmap](#roadmap)).
 pnpm install
 
 # Create your config from the templates (these copies are gitignored):
-cp config.example.yaml config.yaml   # folders to scan / ignore / treat as confidential
-cp rules.example.yaml rules.yaml     # classification lists, patterns and rules
+cp accounts.example.yaml accounts.yaml   # your mailbox(es): id + vendor + username
+cp config.example.yaml config.yaml       # folders to scan / ignore / treat as confidential
+cp rules.example.yaml rules.yaml         # classification lists, patterns and rules
 ```
 
-Then edit `config.yaml` (your folder names) and `rules.yaml` (your sender lists). The
-`*.example.yaml` files are sanitized templates; your real `config.yaml`/`rules.yaml` stay out of
-git. Both carry a `# yaml-language-server: $schema=…` modeline, so with the Red Hat YAML extension
-you get hover docs and validation while editing.
+Then edit `accounts.yaml` (your mailboxes), `config.yaml` (your folder names) and `rules.yaml`
+(your sender lists). The `*.example.yaml` files are sanitized templates; your real copies stay out
+of git. Each carries a `# yaml-language-server: $schema=…` modeline, so with the Red Hat YAML
+extension you get hover docs and validation while editing.
 
-No `.env` is required — connection defaults live in `src/env.ts`. Optionally copy `.env.example`
-to `.env` to override `CLIENT_ID` / `AUTHORITY` / `IMAP_HOST` / `IMAP_PORT` / `REDIRECT_URI` /
-`TOKEN_CACHE_PATH`. Environment variables are validated at startup (via `envalid`), so a malformed
-value fails fast with a clear message instead of surfacing later as a confusing connection error.
+`.env` is usually unnecessary — connection/auth defaults come from the vendor registry, overridable
+per account in `accounts.yaml`. Use `.env` only for `CACHE_DIR` (token-cache location, handy for
+Docker), `MSAL_DEBUG`, or per-account password secrets (referenced from `accounts.yaml` via
+`passwordEnv`). Env vars are validated at startup (via `envalid`).
 
 ## Usage
 
@@ -58,13 +65,14 @@ value fails fast with a clear message instead of surfacing later as a confusing 
 pnpm dev
 ```
 
-**First run** prints a sign-in URL:
+**First run** prints a sign-in URL per Microsoft account (prefixed with the account id):
 
-1. Open the URL, sign in as your Hotmail account, and approve the **"Mozilla Thunderbird"** consent.
+1. Open the URL, sign in as that account, and approve the **"Mozilla Thunderbird"** consent.
 2. The browser redirects to a `https://localhost/?code=...` page that **fails to load — expected**.
 3. **Copy the full address-bar URL** and paste it into the terminal prompt.
 
-The token is then cached in `.cache/msal.json`, so **subsequent runs need no sign-in**.
+The token is then cached at `.cache/<id>/msal.json` (one dir per account), so **subsequent runs
+need no sign-in**.
 
 ```sh
 # Actually apply the decisions:
@@ -157,11 +165,12 @@ numeric `age` field. The interpreter is `src/classifier/dsl.ts` (~50 lines); the
 
 ```
 src/
-  index.ts                  orchestrator: auth → fetch unread → classify → dry-run/apply → summary
-  auth.ts                   MSAL auth-code flow (manual paste) + on-disk token cache
-  imap.ts                   IMAP backend: withInbox() → listUnread / markRead / moveToDeleted
-  env.ts                    typed/validated env (envalid): CLIENT_ID/AUTHORITY/IMAP_HOST/IMAP_PORT/MSAL_DEBUG
-  config.ts                 client ID / authority / IMAP host+port / scope / token-cache path
+  index.ts                  orchestrator: for each account → auth → fetch → classify → dry-run/apply
+  accounts.ts               loads accounts.yaml → ResolvedAccount[] (vendor defaults + overrides)
+  vendors.ts                vendor registry: per-provider connection + auth defaults
+  auth.ts                   authenticate(account): MSAL XOAUTH2 (wired) + password/google stubs
+  imap.ts                   IMAP backend: withMailbox(conn) → listUnread / markRead / moveToDeleted
+  env.ts                    typed/validated env (envalid): CACHE_DIR / MSAL_DEBUG + secret() reader
   types.ts                  MailMessage, Decision, Classifier interface
   classifier/
     rule-classifier.ts      rule engine (first-match-wins) + folderName / ageInHours helpers
@@ -174,8 +183,9 @@ src/
 
 ## Security notes
 
-- `.cache/msal.json` contains a refresh token — treat it like a password. It's **gitignored**.
-- `.env` is gitignored too (though usually unnecessary now).
+- `.cache/<id>/` holds each account's refresh token — treat it like a password. The whole `.cache/`
+  dir is **gitignored**.
+- `accounts.yaml` (mailbox addresses), `config.yaml`, `rules.yaml` and `.env` are gitignored too.
 
 ## Roadmap
 
@@ -184,5 +194,7 @@ src/
 - **Triggers** — run via cron, or IMAP IDLE / polling for near-real-time handling on a mini-server.
 - **Stats** — emit per-run counters to Prometheus/Grafana for a "blocked vs kept" dashboard.
 - **Backend enrichment** — fetch body preview + importance headers; allow/deny lists; decision audit log.
+- **More vendors** — wire Gmail / generic-IMAP auth (password / app-password, or Google OAuth)
+  behind the existing per-vendor auth strategy; the engine is already provider-neutral.
 - **Own app registration** — if you ever get an Entra directory, register your own client and set
-  `CLIENT_ID` so the consent screen shows your app instead of Thunderbird.
+  an account's `clientId` in `accounts.yaml` so the consent screen shows your app instead of Thunderbird.

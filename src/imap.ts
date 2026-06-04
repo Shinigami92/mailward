@@ -6,9 +6,17 @@ import {
 } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { startProgress } from './progress.js';
-import { config } from './config.js';
 import { fileConfig } from './file-config.js';
 import type { MailMessage } from './types.js';
+
+/** IMAP connection details for one account (XOAUTH2 access token, or a password). */
+export interface MailboxConnection {
+  host: string;
+  port: number;
+  user: string;
+  accessToken?: string;
+  pass?: string;
+}
 
 // Auto-discovery exclusions, sourced from config.yaml (folders.skipSpecialUse / skipNames).
 const SKIP_SPECIAL_USE = new Set(fileConfig.folders.skipSpecialUse);
@@ -220,15 +228,17 @@ async function findTrashPath(client: ImapFlow): Promise<string> {
  * `fn`, and cleanly logs out afterwards.
  */
 export async function withMailbox<T>(
-  username: string,
-  accessToken: string,
+  conn: MailboxConnection,
   fn: (mailbox: Mailbox) => Promise<T>,
 ): Promise<T> {
   const client = new ImapFlow({
-    host: config.imapHost,
-    port: config.imapPort,
+    host: conn.host,
+    port: conn.port,
     secure: true,
-    auth: { user: username, accessToken },
+    // imapflow accepts either an XOAUTH2 access token or a password.
+    auth: conn.accessToken
+      ? { user: conn.user, accessToken: conn.accessToken }
+      : { user: conn.user, pass: conn.pass },
     logger: false,
   });
 

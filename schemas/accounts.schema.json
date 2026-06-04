@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Shinigami92/mailward/blob/main/schemas/accounts.schema.json",
+  "title": "mailward accounts",
+  "description": "The mailboxes mailward processes. Each account picks a vendor (connection + auth defaults come from the code vendor registry) and may override any field. Only the microsoft vendor's auth is implemented today.",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["id", "vendor", "username"],
+    "properties": {
+      "id": {
+        "description": "Stable lowercase key (letters/digits/hyphens). Used for the token-cache filename, per-account overrides in config.yaml / rules.yaml, and output section headers.",
+        "type": "string",
+        "pattern": "^[a-z0-9-]+$"
+      },
+      "vendor": {
+        "description": "Provider profile supplying connection + auth defaults. microsoft = Outlook/Hotmail OAuth (implemented). gmail / generic are recognized but their login isn't implemented yet (the account is skipped with a warning).",
+        "enum": ["microsoft", "gmail", "generic"]
+      },
+      "username": {
+        "description": "The mailbox address to sign in / connect as.",
+        "type": "string"
+      },
+      "imapHost": {
+        "description": "Override the vendor's default IMAP host (required for the generic vendor).",
+        "type": "string"
+      },
+      "imapPort": {
+        "description": "Override the vendor's default IMAP port (usually 993).",
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 65535
+      },
+      "clientId": {
+        "description": "OAuth client id (microsoft). Defaults to the Mozilla Thunderbird public client; set this if you register your own Entra app.",
+        "type": "string"
+      },
+      "authority": {
+        "description": "OAuth authority (microsoft). Defaults to the /common tenant.",
+        "type": "string"
+      },
+      "redirectUri": {
+        "description": "OAuth redirect URI (microsoft). Defaults to https://localhost.",
+        "type": "string"
+      },
+      "scopes": {
+        "description": "OAuth scopes (microsoft). Defaults to the Outlook IMAP scope.",
+        "type": "array",
+        "items": { "type": "string" }
+      },
+      "passwordEnv": {
+        "description": "Name of the .env variable holding this account's password / app-password (password vendors). The secret value stays in .env, never in this file.",
+        "type": "string"
+      }
+    }
+  }
+}

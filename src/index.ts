@@ -1,7 +1,13 @@
 import { writeFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
-import { getAuth } from './auth.js';
-import { withMailbox, type FolderSession, type Mailbox } from './imap.js';
+import { authenticate, VendorNotImplementedError } from './auth.js';
+import { accounts, type ResolvedAccount } from './accounts.js';
+import {
+  withMailbox,
+  type FolderSession,
+  type Mailbox,
+  type MailboxConnection,
+} from './imap.js';
 import { RuleClassifier, ageInHours } from './classifier/rule-classifier.js';
 import { rules } from './rules.config.js';
 import { cleanupRules, expirySignal } from './cleanup.config.js';
@@ -22,6 +28,7 @@ interface Cli {
   search: string | undefined;
   since: string | undefined;
   unread: boolean;
+  account: string | undefined;
 }
 
 function parseCli(): Cli {
@@ -36,6 +43,7 @@ function parseCli(): Cli {
       search: { type: 'string' },
       since: { type: 'string' },
       unread: { type: 'boolean', default: false },
+      account: { type: 'string' },
     },
   });
   const limit = values.limit ? Number.parseInt(values.limit, 10) : undefined;
@@ -49,6 +57,7 @@ function parseCli(): Cli {
     search: values.search,
     since: values.since,
     unread: values.unread ?? false,
+    account: values.account,
   };
 }
 
@@ -144,6 +153,7 @@ async function collectUnread(mailbox: Mailbox, folders: string[]): Promise<MailM
 }
 
 const EXPORT_COLUMNS = [
+  'account',
   'folder',
   'fromName',
   'fromAddress',
@@ -156,7 +166,7 @@ const EXPORT_COLUMNS = [
 
 /**
  * Folders for the default auto-scan. Always drops `ignore` folders; drops `confidential`
- * ones too unless the user listed folders explicitly via FOLDERS (opt-in).
+ * ones too unless the user listed folders explicitly (opt-in via the scan list).
  */
 async function scanFolders(mailbox: Mailbox): Promise<string[]> {
   const explicit = fileConfig.folders.scan != null;
@@ -164,13 +174,17 @@ async function scanFolders(mailbox: Mailbox): Promise<string[]> {
   return discovered.filter((f) => !isIgnored(f) && (explicit || !isConfidential(f)));
 }
 
-/** Dumps all unread mail to a CSV for manual labelling (the training-data loop). */
-async function exportToCsv(mailbox: Mailbox, path: string): Promise<void> {
+/** Collects unread mail from one account's mailbox as labelling rows (the training-data loop). */
+async function exportRows(
+  mailbox: Mailbox,
+  account: ResolvedAccount,
+): Promise<Array<Record<string, string>>> {
   const folders = await scanFolders(mailbox);
   log.info(`Folders: ${folders.join(', ')}`);
   const messages = await collectUnread(mailbox, folders);
 
-  const rows = messages.map((m) => ({
+  return messages.map((m) => ({
+    account: account.id,
     folder: m.folder,
     fromName: m.fromName,
     fromAddress: m.fromAddress,
@@ -180,10 +194,6 @@ async function exportToCsv(mailbox: Mailbox, path: string): Promise<void> {
     decision: '',
     reason: '',
   }));
-
-  await writeFile(path, toCsv(EXPORT_COLUMNS, rows), 'utf8');
-  log.info(`Exported ${rows.length} unread message(s) to ${path}.`);
-  log.info('Fill the "decision" (keep|markRead|delete) and "reason" columns, then save.');
 }
 
 const ACTION_COLUMNS = ['Folder', 'Date', 'From', 'Subject', 'Action', 'Rule'] as const;
@@ -328,33 +338,94 @@ async function cleanup(mailbox: Mailbox, cli: Cli): Promise<void> {
   });
 }
 
+/** The accounts to process this run: all of them, or just the one named by --account. */
+function selectAccounts(cli: Cli): ResolvedAccount[] {
+  if (cli.account === undefined) {
+    return accounts;
+  }
+  const id = cli.account.toLowerCase();
+  const matched = accounts.filter((a) => a.id === id);
+  if (matched.length === 0) {
+    throw new Error(
+      `No account with id "${cli.account}". Known: ${accounts.map((a) => a.id).join(', ')}.`,
+    );
+  }
+  return matched;
+}
+
+/**
+ * Authenticates an account into IMAP connection details, or returns null (logging a warning)
+ * if its vendor's auth isn't implemented yet — so a run across accounts skips it and continues.
+ */
+async function connect(account: ResolvedAccount): Promise<MailboxConnection | null> {
+  try {
+    const creds = await authenticate(account);
+    return {
+      host: account.imapHost,
+      port: account.imapPort,
+      user: creds.user,
+      accessToken: creds.accessToken,
+      pass: creds.pass,
+    };
+  } catch (error) {
+    if (error instanceof VendorNotImplementedError) {
+      log.warn(`Skipping account "${account.id}" (${account.vendor}): ${error.message}.`);
+    } else {
+      log.error(`Skipping account "${account.id}" (${account.vendor}): ${String(error)}`);
+    }
+    return null;
+  }
+}
+
 async function main(): Promise<void> {
   const cli = parseCli();
-  const { accessToken, username } = await getAuth();
+  const selected = selectAccounts(cli);
 
-  if (cli.inspect) {
-    log.info('Mode: INSPECT');
-    await withMailbox(username, accessToken, (mailbox) => inspect(mailbox, cli));
-    return;
-  }
-
-  if (cli.cleanup) {
-    log.info(`Mode: CLEANUP${cli.apply ? ' (APPLY)' : ' (DRY-RUN)'}`);
-    await withMailbox(username, accessToken, (mailbox) => cleanup(mailbox, cli));
-    return;
-  }
-
+  // EXPORT aggregates unread mail from every account into one labelling CSV.
   if (cli.export !== undefined) {
     log.info('Mode: EXPORT');
-    await withMailbox(username, accessToken, (mailbox) =>
-      exportToCsv(mailbox, cli.export as string),
+    const allRows: Array<Record<string, string>> = [];
+    for (const account of selected) {
+      log.info(`\n── Account: ${account.id} (${account.vendor}) ──`);
+      const conn = await connect(account);
+      if (!conn) {
+        continue;
+      }
+      await withMailbox(conn, async (mailbox) => {
+        allRows.push(...(await exportRows(mailbox, account)));
+      });
+    }
+    await writeFile(cli.export, toCsv(EXPORT_COLUMNS, allRows), 'utf8');
+    log.info(
+      `Exported ${allRows.length} unread message(s) across ${selected.length} account(s) to ${cli.export}.`,
     );
+    log.info('Fill the "decision" (keep|markRead|delete) and "reason" columns, then save.');
     return;
   }
 
-  const mode = cli.apply ? 'APPLY' : 'DRY-RUN';
-  log.info(`Mode: ${mode}${cli.limit ? ` (limit ${cli.limit})` : ''}`);
-  await withMailbox(username, accessToken, (mailbox) => processMailbox(mailbox, cli));
+  const mode = cli.inspect
+    ? 'INSPECT'
+    : cli.cleanup
+      ? `CLEANUP${cli.apply ? ' (APPLY)' : ' (DRY-RUN)'}`
+      : `${cli.apply ? 'APPLY' : 'DRY-RUN'}${cli.limit ? ` (limit ${cli.limit})` : ''}`;
+  log.info(`Mode: ${mode} — ${selected.length} account(s)`);
+
+  for (const account of selected) {
+    log.info(`\n══════ Account: ${account.id} (${account.vendor}) ══════`);
+    const conn = await connect(account);
+    if (!conn) {
+      continue;
+    }
+    await withMailbox(conn, async (mailbox) => {
+      if (cli.inspect) {
+        return inspect(mailbox, cli);
+      }
+      if (cli.cleanup) {
+        return cleanup(mailbox, cli);
+      }
+      return processMailbox(mailbox, cli);
+    });
+  }
 }
 
 main().catch((error: unknown) => {
