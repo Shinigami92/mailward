@@ -1,6 +1,6 @@
 {
   "name": "mailward-monorepo",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Rule-driven inbox auto-triage over IMAP, configured from a web UI - a \"Pi-hole for your email\".",
   "license": "MIT",
