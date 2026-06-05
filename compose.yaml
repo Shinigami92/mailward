@@ -1,0 +1,24 @@
+name: mailward
+
+services:
+  mailward:
+    # Pull the published image, or build locally with `docker compose build`.
+    image: ghcr.io/shinigami92/mailward:latest
+    build:
+      context: .
+    ports:
+      - "8080:8080"
+    volumes:
+      # Your YAML config (accounts.yaml / config.yaml / rules.yaml) lives here and
+      # stays host-editable. The web UI reads & writes these files.
+      # On Linux the dir must be writable by the container user (uid 10001):
+      #   mkdir -p config && sudo chown -R 10001:10001 config
+      # (On Docker Desktop / Windows it works as-is.)
+      - ./config:/config
+      # OAuth refresh tokens (treat like passwords). A named volume keeps the
+      # permissions simple and the tokens off the host filesystem.
+      - mailward-cache:/cache
+    restart: unless-stopped
+
+volumes:
+  mailward-cache:
