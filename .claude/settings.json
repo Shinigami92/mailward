@@ -1,0 +1,15 @@
+{
+  "// note": "Quality gate without git hooks: when Claude finishes a turn, run the verify gate (format check + lint + type-check + clippy). Non-zero exit surfaces problems as an advisory message; it does not block. Requires `just` on PATH.",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "just verify"
+          }
+        ]
+      }
+    ]
+  }
+}

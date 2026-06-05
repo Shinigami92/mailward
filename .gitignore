@@ -1,12 +1,23 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
+target/
+*.tsbuildinfo
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+.playwright-mcp/
 
 # Secrets & local state
 .env
 .cache/
 .claude/settings.local.json
 
-# Personal config — copy the *.example.yaml templates to these and edit.
+# Personal config - copy the *.example.yaml templates to these and edit.
 # (They hold your mailbox addresses, folder names + sender lists, so they stay out of git.)
 accounts.yaml
 config.yaml

@@ -1,0 +1,26 @@
+[package]
+name = "mailward-api"
+version = "0.0.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+description = "mailward GraphQL API server (axum + async-graphql)"
+
+[[bin]]
+name = "mailward-api"
+path = "src/main.rs"
+
+[dependencies]
+async-graphql = "7.2.1"
+async-graphql-axum = "7.2.1"
+axum = "0.8.9"
+futures = "0.3.32"
+mailward-core = { workspace = true }
+serde.workspace = true
+thiserror = "2.0.18"
+tokio = { workspace = true }
+tokio-stream = { version = "0.1.18", features = ["sync"] }
+tower-http = { version = "0.6.11", features = ["fs", "cors"] }

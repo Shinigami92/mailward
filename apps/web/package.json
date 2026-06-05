@@ -1,0 +1,44 @@
+{
+  "name": "@mailward/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "ts-check": "run-s ts-check:app ts-check:node",
+    "ts-check:app": "vue-tsc --noEmit -p tsconfig.json",
+    "ts-check:node": "tsc --noEmit -p tsconfig.node.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@urql/core": "6.0.1",
+    "@urql/vue": "2.1.0",
+    "graphql": "16.14.1",
+    "graphql-ws": "6.0.8",
+    "reka-ui": "2.9.9",
+    "vue": "3.5.35",
+    "vue-router": "5.1.0"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "10.4.0",
+    "@iconify-json/lucide": "1.2.111",
+    "@playwright/test": "1.60.0",
+    "@tailwindcss/vite": "4.3.0",
+    "@types/node": "25.9.1",
+    "@vitejs/plugin-vue": "6.0.7",
+    "@vue/test-utils": "2.4.10",
+    "jsdom": "29.1.1",
+    "npm-run-all2": "9.0.1",
+    "tailwindcss": "4.3.0",
+    "typescript": "6.0.3",
+    "unplugin-icons": "23.0.1",
+    "vite": "8.0.16",
+    "vite-plugin-vue-hsml": "0.7.0",
+    "vitest": "4.1.8",
+    "vue-tsc": "3.3.3"
+  }
+}

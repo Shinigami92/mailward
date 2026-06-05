@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "jsx": "preserve",
+    "strict": true,
+    // HSML templates (`<template lang="hsml">`) are compiled by a Vite plugin, not by
+    // Volar/vue-tsc, so vue-tsc can't see template-only bindings and would flag every
+    // setup binding used solely in a template as unused. oxlint still catches genuine
+    // unused code in plain modules.
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["env.d.ts", "src/**/*.ts", "src/**/*.vue"],
+  "exclude": ["node_modules", "dist"]
+}

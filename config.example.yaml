@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=./schemas/config.schema.json
-# mailward — example operational config. Copy this file to config.yaml and edit it for your mailbox:
+# mailward - example operational config. Copy this file to config.yaml and edit it for your mailbox:
 #   cp config.example.yaml config.yaml
 # config.yaml is gitignored (it holds your personal folder names).
 #
-# Connection & auth live in .env (CLIENT_ID, AUTHORITY, IMAP_HOST, IMAP_PORT, …).
+# Connection & auth live in .env (CLIENT_ID, AUTHORITY, IMAP_HOST, IMAP_PORT, ...).
 # Classification rules & their data live in rules.yaml.
 
 folders:

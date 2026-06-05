@@ -1,21 +1,21 @@
 # yaml-language-server: $schema=./schemas/rules.schema.json
-# mailward — example classification rules. Copy this file to rules.yaml and edit it for your mailbox:
+# mailward - example classification rules. Copy this file to rules.yaml and edit it for your mailbox:
 #   cp rules.example.yaml rules.yaml
 # rules.yaml is gitignored (your lists reveal which senders/services you use).
 #
-#   refs:      the named data the rules reference — sender `lists`, regex `patterns`, age
+#   refs:      the named data the rules reference - sender `lists`, regex `patterns`, age
 #              `thresholds`. Rules point at these by name, e.g. `ref: lists.markReadDomains`.
 #   classify:  unread-path rules (keep | markRead | delete).
 #   cleanup:   --cleanup prune rules for already-read mail.
 #
-# The `lists` under `refs:` are PLACEHOLDERS — replace them with your own senders. The
+# The `lists` under `refs:` are PLACEHOLDERS - replace them with your own senders. The
 # `patterns`, `thresholds` and rule logic are a generic starter set you can keep or tweak.
 #
 # The patterns here use ENGLISH spam/scam terms. Spam is language-specific, so extend these
 # with keywords for whatever language(s) your junk mail arrives in.
 #
 # Patterns are regexes compiled case-insensitively (the `i` flag); single-quote them so
-# backslashes are literal — write `\b`, not `\\b`. Thresholds are human durations
+# backslashes are literal - write `\b`, not `\\b`. Thresholds are human durations
 # (parse-duration): `7d`, `30 days`, `1440 min`, `36h`.
 
 refs:
@@ -31,7 +31,7 @@ refs:
       - spam-host.example
       - unsolicited-brand.example
 
-    # Transactional/personal senders — NEVER deleted by --cleanup, even when old.
+    # Transactional/personal senders - NEVER deleted by --cleanup, even when old.
     protectSenders:
       - your-bank.example
       - shop.example
@@ -52,7 +52,7 @@ refs:
     # Credential/account-update phishing lures (matched against subject + body).
     phishing: '(online[\s-]?banking|verify your (account|identity)|confirm your (account|identity|details)|account (has been |was )?(suspend|lock|limit)|update your (payment|account|billing|details)|unusual (sign[\s-]?in|activity)|password (will )?(expir|reset))'
 
-    # Advance-fee / lottery money scams — large sums legit personal mail rarely carries.
+    # Advance-fee / lottery money scams - large sums legit personal mail rarely carries.
     moneyScam: '(\bmillions?\b|(USD|EUR|GBP|US-?Dollars?|[€$£])\s?\d{1,3}([.,]\d{3}){2,})'
 
     # Romance / charity / emotional-manipulation bait.
@@ -97,7 +97,7 @@ refs:
 # The <operand> is ONE of:
 #   value: <literal>          an inline value, e.g.  value: '\bcasino\b'   or  value: Junk
 #   ref:   <bucket>.<name>    a named entry under `refs:` above. <bucket> is one of refs'
-#                             THREE buckets — lists, patterns or thresholds:
+#                             THREE buckets - lists, patterns or thresholds:
 #                               ref: lists.spamDomains     # a sender list   (use with endsWithAny)
 #                               ref: patterns.phishing     # a regex pattern (use with regex)
 #                               ref: thresholds.monthly    # an age in hours (use with '>' / '>=')
@@ -144,7 +144,7 @@ classify:
         - { field: content, op: regex, ref: patterns.phishing }
     then: delete
 
-  # Advance-fee / 419 money scams — catches even empty-subject ones via the body.
+  # Advance-fee / 419 money scams - catches even empty-subject ones via the body.
   - name: junk-money-scam
     when:
       all:
@@ -229,7 +229,7 @@ cleanup:
     then: delete
 
 # Per-account rule overrides (optional), keyed by the account id from accounts.yaml. Each block
-# deep-merges over everything above. Example — give one account its own newsletter senders:
+# deep-merges over everything above. Example - give one account its own newsletter senders:
 # accounts:
 #   work-gmail:
 #     refs:

@@ -20,7 +20,7 @@
     },
     "accounts": {
       "type": "object",
-      "description": "Per-account rule overrides, keyed by the account id from accounts.yaml. Each block deep-merges over the shared rules above (nested objects merge; arrays/scalars replace) — override e.g. one ref entry under refs, or replace the classify/cleanup arrays for that account.",
+      "description": "Per-account rule overrides, keyed by the account id from accounts.yaml. Each block deep-merges over the shared rules above (nested objects merge; arrays/scalars replace) - override e.g. one ref entry under refs, or replace the classify/cleanup arrays for that account.",
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
@@ -35,7 +35,7 @@
   "definitions": {
     "refs": {
       "type": "object",
-      "description": "The named data rules point at via `ref: <bucket>.<name>` — sender lists, regex patterns and age thresholds.",
+      "description": "The named data rules point at via `ref: <bucket>.<name>` - sender lists, regex patterns and age thresholds.",
       "additionalProperties": false,
       "required": ["lists", "patterns", "thresholds"],
       "properties": {
@@ -109,7 +109,7 @@
               "format": "regex"
             },
             "protectSubject": {
-              "description": "Subjects marking a message as transactional/important (invoice, order, booking, receipt …). --cleanup NEVER deletes a message whose subject matches.",
+              "description": "Subjects marking a message as transactional/important (invoice, order, booking, receipt ...). --cleanup NEVER deletes a message whose subject matches.",
               "type": "string",
               "format": "regex"
             },

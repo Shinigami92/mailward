@@ -1,0 +1,16 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.95"
+license = "MIT"
+authors = ["Christopher Quadflieg <chrissi92@hotmail.de>"]
+repository = "https://github.com/Shinigami92/mailward"
+
+[workspace.dependencies]
+mailward-core = { path = "crates/mailward-core" }
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"

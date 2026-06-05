@@ -1,36 +1,34 @@
 {
-  "name": "mailward",
+  "name": "mailward-monorepo",
   "version": "0.0.0",
   "private": true,
-  "type": "module",
-  "description": "Rule-driven inbox auto-triage over IMAP (mark-read / delete) — a \"Pi-hole for your email\". Outlook/Hotmail supported first.",
+  "description": "Rule-driven inbox auto-triage over IMAP, configured from a web UI - a \"Pi-hole for your email\".",
+  "license": "MIT",
   "author": {
     "name": "Christopher Quadflieg",
     "email": "chrissi92@hotmail.de",
     "url": "https://github.com/Shinigami92"
   },
-  "license": "MIT",
+  "type": "module",
   "scripts": {
-    "dev": "tsx src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js"
+    "dev": "concurrently --kill-others --names api,web --prefix-colors blue,green \"pnpm run dev:api\" \"pnpm run dev:web\"",
+    "dev:api": "cargo watch --watch crates --exec \"run -p mailward-api\"",
+    "dev:web": "pnpm --filter @mailward/web dev",
+    "format": "oxfmt --ignore-path .gitignore --ignore-path .oxfmtignore .",
+    "format:check": "oxfmt --check --ignore-path .gitignore --ignore-path .oxfmtignore .",
+    "lint": "oxlint"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "21.0.2",
+    "@commitlint/config-conventional": "21.0.2",
+    "@commitlint/types": "21.0.1",
+    "concurrently": "10.0.3",
+    "oxfmt": "0.47.0",
+    "oxlint": "1.62.0",
+    "oxlint-tsgolint": "0.22.1"
   },
   "engines": {
     "node": ">=22"
-  },
-  "dependencies": {
-    "@azure/msal-node": "5.2.2",
-    "envalid": "8.1.1",
-    "imapflow": "1.3.5",
-    "mailparser": "3.9.9",
-    "parse-duration": "2.1.6",
-    "yaml": "2.9.0"
-  },
-  "devDependencies": {
-    "@types/mailparser": "3.4.6",
-    "@types/node": "25.9.1",
-    "tsx": "4.22.4",
-    "typescript": "6.0.3"
   },
   "packageManager": "pnpm@11.3.0"
 }

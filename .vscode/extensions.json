@@ -1,4 +1,12 @@
 {
-  "// note": "redhat.vscode-yaml reads the `# yaml-language-server: $schema=` modelines in config.yaml / rules.yaml to provide hover docs, validation and autocomplete.",
-  "recommendations": ["redhat.vscode-yaml"]
+  "// note": "redhat.vscode-yaml reads the `# yaml-language-server: $schema=` modelines in the *.yaml configs for hover docs, validation and autocomplete. The rest match the mailward stack.",
+  "recommendations": [
+    "bradlc.vscode-tailwindcss",
+    "hsml-lab.hsml",
+    "oxc.oxc-vscode",
+    "redhat.vscode-yaml",
+    "rust-lang.rust-analyzer",
+    "tamasfe.even-better-toml",
+    "Vue.volar"
+  ]
 }

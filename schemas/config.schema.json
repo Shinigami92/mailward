@@ -32,7 +32,7 @@
           "default": ["outbox", "notes"]
         },
         "ignore": {
-          "description": "Folders that are NEVER scanned, inspected, or touched — even when named explicitly via --folder. Use for deliberate archives you never want automated (e.g. a trip folder).",
+          "description": "Folders that are NEVER scanned, inspected, or touched - even when named explicitly via --folder. Use for deliberate archives you never want automated (e.g. a trip folder).",
           "type": "array",
           "items": { "type": "string" },
           "default": []
@@ -89,7 +89,7 @@
     },
     "accounts": {
       "type": "object",
-      "description": "Per-account config overrides, keyed by the account id from accounts.yaml. Each block deep-merges over the shared config above (nested objects merge; arrays/scalars replace), so you can override just one key — e.g. a Gmail account's folders.confidential or defaults.folder.",
+      "description": "Per-account config overrides, keyed by the account id from accounts.yaml. Each block deep-merges over the shared config above (nested objects merge; arrays/scalars replace), so you can override just one key - e.g. a Gmail account's folders.confidential or defaults.folder.",
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,

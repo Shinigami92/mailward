@@ -1,0 +1,7 @@
+# Config YAML is hand-laid-out and validated by JSON Schema via the
+# `# yaml-language-server` modeline - let the Red Hat YAML tooling own its format.
+*.yaml
+*.yml
+
+# JSON Schemas are data files (regenerated alongside the config model).
+schemas/

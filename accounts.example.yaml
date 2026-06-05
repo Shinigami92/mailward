@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=./schemas/accounts.schema.json
-# mailward — example accounts. Copy this file to accounts.yaml and edit it:
+# mailward - example accounts. Copy this file to accounts.yaml and edit it:
 #   cp accounts.example.yaml accounts.yaml
 # accounts.yaml is gitignored (it holds your mailbox addresses).
 #
@@ -18,9 +18,9 @@
   # imapHost: outlook.office365.com
   # imapPort: 993
   # clientId: <your-own-entra-app-id>   # default: Mozilla Thunderbird public client
-  # (token cache lives at <CACHE_DIR>/<id>/ — derived from the id, not configurable)
+  # (token cache lives at <CACHE_DIR>/<id>/ - derived from the id, not configurable)
 
-# Duplicate vendors are fine — just give each a distinct id:
+# Duplicate vendors are fine - just give each a distinct id:
 # - id: work-gmail
 #   vendor: gmail
 #   username: you@gmail.com

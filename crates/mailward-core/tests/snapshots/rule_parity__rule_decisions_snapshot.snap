@@ -1,0 +1,248 @@
+---
+source: crates/mailward-core/tests/rule_parity.rs
+expression: outcomes
+---
+[
+    Outcome {
+        label: "github-bot",
+        classify: Verdict {
+            decision: MarkRead,
+            reason: "github-bot",
+        },
+        cleanup: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+    },
+    Outcome {
+        label: "github-human-kept",
+        classify: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+        cleanup: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+    },
+    Outcome {
+        label: "known-newsletter",
+        classify: Verdict {
+            decision: MarkRead,
+            reason: "known-newsletter",
+        },
+        cleanup: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+    },
+    Outcome {
+        label: "junk-spam-domain",
+        classify: Verdict {
+            decision: Delete,
+            reason: "junk-spam-domain",
+        },
+        cleanup: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+    },
+    Outcome {
+        label: "junk-spam-onmicrosoft",
+        classify: Verdict {
+            decision: Delete,
+            reason: "junk-spam-domain",
+        },
+        cleanup: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+    },
+    Outcome {
+        label: "junk-spam-subject",
+        classify: Verdict {
+            decision: Delete,
+            reason: "junk-spam-subject",
+        },
+        cleanup: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+    },
+    Outcome {
+        label: "junk-phishing",
+        classify: Verdict {
+            decision: Delete,
+            reason: "junk-phishing",
+        },
+        cleanup: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+    },
+    Outcome {
+        label: "junk-money-scam",
+        classify: Verdict {
+            decision: Delete,
+            reason: "junk-money-scam",
+        },
+        cleanup: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+    },
+    Outcome {
+        label: "junk-emotional-scam",
+        classify: Verdict {
+            decision: Delete,
+            reason: "junk-emotional-scam",
+        },
+        cleanup: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+    },
+    Outcome {
+        label: "junk-impersonation",
+        classify: Verdict {
+            decision: Delete,
+            reason: "junk-impersonation",
+        },
+        cleanup: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+    },
+    Outcome {
+        label: "junk-fake-parcel",
+        classify: Verdict {
+            decision: Delete,
+            reason: "junk-fake-parcel",
+        },
+        cleanup: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+    },
+    Outcome {
+        label: "junk-unmatched-kept",
+        classify: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+        cleanup: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+    },
+    Outcome {
+        label: "inbox-unmatched-kept",
+        classify: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+        cleanup: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+    },
+    Outcome {
+        label: "protect-sender",
+        classify: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+        cleanup: Verdict {
+            decision: Keep,
+            reason: "protect-sender",
+        },
+    },
+    Outcome {
+        label: "protect-subject",
+        classify: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+        cleanup: Verdict {
+            decision: Keep,
+            reason: "protect-subject",
+        },
+    },
+    Outcome {
+        label: "monthly-stale-old",
+        classify: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+        cleanup: Verdict {
+            decision: Delete,
+            reason: "monthly-stale",
+        },
+    },
+    Outcome {
+        label: "monthly-stale-young",
+        classify: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+        cleanup: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+    },
+    Outcome {
+        label: "promo-digest-old",
+        classify: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+        cleanup: Verdict {
+            decision: Delete,
+            reason: "promo-digest-old",
+        },
+    },
+    Outcome {
+        label: "promo-digest-young",
+        classify: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+        cleanup: Verdict {
+            decision: Keep,
+            reason: "promo-digest-young",
+        },
+    },
+    Outcome {
+        label: "promo-expired",
+        classify: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+        cleanup: Verdict {
+            decision: Delete,
+            reason: "promo-expired",
+        },
+    },
+    Outcome {
+        label: "promo-stale",
+        classify: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+        cleanup: Verdict {
+            decision: Delete,
+            reason: "promo-stale",
+        },
+    },
+    Outcome {
+        label: "promo-young-kept",
+        classify: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+        cleanup: Verdict {
+            decision: Keep,
+            reason: "no rule matched",
+        },
+    },
+]
