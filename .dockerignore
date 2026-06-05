@@ -1,0 +1,26 @@
+# VCS / CI / editor / agent
+.git
+.github
+.vscode
+.claude
+.playwright-mcp
+
+# Dependencies & build output (rebuilt inside the image)
+**/node_modules
+target
+**/dist
+test-results
+playwright-report
+playwright/.cache
+
+# Secrets & personal config - must NEVER be baked into the image
+.env
+.cache
+accounts.yaml
+config.yaml
+rules.yaml
+*.csv
+
+# Docs (not needed for the build)
+*.md
+LICENSE
