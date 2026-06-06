@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { type DecisionKind, decisionClasses, decisionLabel } from "@/lib/decisions";
+import type { DecisionKind } from "@/lib/decisions";
+import { decisionClasses, decisionLabel } from "@/lib/decisions";
 
 defineProps<{ decision: DecisionKind }>();
 </script>

@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { useMutation, useQuery } from "@urql/vue";
-import { computed, ref } from "vue";
 import YamlEditor from "@/components/YamlEditor.vue";
 import {
   ACCOUNTS_QUERY,
@@ -9,6 +7,8 @@ import {
   AUTH_START,
   UPDATE_ACCOUNTS_YAML,
 } from "@/lib/graphql";
+import { useMutation, useQuery } from "@urql/vue";
+import { computed, ref } from "vue";
 
 interface Account {
   id: string;

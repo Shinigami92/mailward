@@ -1,1 +1,12 @@
-{}
+{
+  "sortImports": {
+    "groups": [
+      ["builtin", "external", "internal"],
+      { "newlinesBetween": false },
+      ["parent", "sibling", "index"]
+    ],
+    "newlinesBetween": false,
+    "order": "asc",
+    "ignoreCase": true
+  }
+}

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { useMutation, useQuery, useSubscription } from "@urql/vue";
-import { computed, ref } from "vue";
 import DecisionBadge from "@/components/DecisionBadge.vue";
 import type { DecisionKind } from "@/lib/decisions";
 import { ACCOUNTS_QUERY, RUN_PROGRESS, TRIGGER_RUN } from "@/lib/graphql";
+import { useMutation, useQuery, useSubscription } from "@urql/vue";
+import { computed, ref } from "vue";
 
 interface Decision {
   account: string;
@@ -22,7 +22,7 @@ interface RunResult {
 }
 
 const { data: accountsData } = useQuery({ query: ACCOUNTS_QUERY });
-const accounts = computed<{ id: string }[]>(() => accountsData.value?.accounts ?? []);
+const accounts = computed<Array<{ id: string }>>(() => accountsData.value?.accounts ?? []);
 const selected = ref("");
 const mode = ref<"CLASSIFY" | "CLEANUP">("CLASSIFY");
 const apply = ref(false);
