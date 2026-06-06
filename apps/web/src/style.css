@@ -1,1 +1,55 @@
 @import "tailwindcss";
+
+/* Class-based dark mode: `dark:` applies when the element (or an ancestor) has `.dark`. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Semantic theme tokens. Light is the default; the `.dark` block flips them. Values
+   reference Tailwind's default slate palette, so the look stays neutral in both modes. */
+:root {
+  color-scheme: light;
+  --ui-bg: var(--color-slate-50);
+  --ui-surface: #ffffff;
+  --ui-surface-2: var(--color-slate-100);
+  --ui-line: var(--color-slate-200);
+  --ui-line-strong: var(--color-slate-300);
+  --ui-fg: var(--color-slate-900);
+  --ui-fg-muted: var(--color-slate-500);
+  --ui-fg-faint: var(--color-slate-400);
+  --ui-accent: var(--color-slate-900);
+  --ui-accent-fg: #ffffff;
+}
+
+.dark {
+  color-scheme: dark;
+  --ui-bg: var(--color-slate-950);
+  --ui-surface: var(--color-slate-900);
+  --ui-surface-2: var(--color-slate-800);
+  --ui-line: var(--color-slate-800);
+  --ui-line-strong: var(--color-slate-700);
+  --ui-fg: var(--color-slate-100);
+  --ui-fg-muted: var(--color-slate-400);
+  --ui-fg-faint: var(--color-slate-500);
+  --ui-accent: var(--color-slate-100);
+  --ui-accent-fg: var(--color-slate-900);
+}
+
+/* Expose the tokens as Tailwind color utilities: bg-ui-surface, text-ui-fg, border-ui-line, ... */
+@theme inline {
+  --color-ui-bg: var(--ui-bg);
+  --color-ui-surface: var(--ui-surface);
+  --color-ui-surface-2: var(--ui-surface-2);
+  --color-ui-line: var(--ui-line);
+  --color-ui-line-strong: var(--ui-line-strong);
+  --color-ui-fg: var(--ui-fg);
+  --color-ui-fg-muted: var(--ui-fg-muted);
+  --color-ui-fg-faint: var(--ui-fg-faint);
+  --color-ui-accent: var(--ui-accent);
+  --color-ui-accent-fg: var(--ui-accent-fg);
+}
+
+@layer base {
+  body {
+    background-color: var(--ui-bg);
+    color: var(--ui-fg);
+  }
+}
