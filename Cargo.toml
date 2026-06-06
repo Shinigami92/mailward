@@ -4,7 +4,7 @@ members = ["crates/*"]
 
 [workspace.package]
 edition = "2024"
-rust-version = "1.95"
+rust-version = "1.96"
 license = "MIT"
 authors = ["Christopher Quadflieg <chrissi92@hotmail.de>"]
 repository = "https://github.com/Shinigami92/mailward"
