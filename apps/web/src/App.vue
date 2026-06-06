@@ -23,15 +23,15 @@ const links = [
 </script>
 
 <template lang="hsml">
-div(class="min-h-screen bg-ui-bg text-ui-fg")
-  header(class="border-b border-ui-line bg-ui-surface")
+div(class="min-h-screen bg-background text-foreground")
+  header(class="border-b border-border bg-card")
     div(class="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3 sm:gap-6")
       h1(class="text-lg font-semibold tracking-tight") mailward
       nav(class="flex flex-1 gap-1 overflow-x-auto")
-        RouterLink(v-for="link in links" :key="link.to" :to="link.to" :aria-label="link.label" class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-ui-fg-muted hover:bg-ui-surface-2 sm:px-3" active-class="bg-ui-accent text-ui-accent-fg hover:bg-ui-accent")
+        RouterLink(v-for="link in links" :key="link.to" :to="link.to" :aria-label="link.label" class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted sm:px-3" active-class="bg-primary text-primary-foreground hover:bg-primary")
           component(:is="link.icon" class="size-4 shrink-0")
           span(class="hidden sm:inline") {{ link.label }}
-      button(type="button" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'" class="rounded-md p-2 text-ui-fg-muted hover:bg-ui-surface-2" @click="toggleDark()")
+      button(type="button" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'" class="rounded-md p-2 text-muted-foreground hover:bg-muted" @click="toggleDark()")
         component(:is="isDark ? IconSun : IconMoon" class="size-4")
   main(class="mx-auto max-w-5xl px-4 py-6")
     RouterView
