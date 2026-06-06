@@ -17,6 +17,7 @@
   "dependencies": {
     "@urql/core": "6.0.1",
     "@urql/vue": "2.1.0",
+    "@vueuse/core": "14.3.0",
     "graphql": "16.14.1",
     "graphql-ws": "6.0.8",
     "reka-ui": "2.9.9",

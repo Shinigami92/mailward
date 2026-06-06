@@ -67,6 +67,8 @@ Run them separately with `just dev-api` / `just dev-web` if you prefer two termi
 - [x] **Phase 5**: Docker image (multi-stage) + Compose + a GHCR publish workflow (build on PRs, push on `v*` tags)
 - [ ] **Later**: IMAP IDLE / cron triggers, Prometheus/Grafana stats, optional local-LLM classifier ← _here_
 - [ ] **Backlog**: building-block rule builder UI (visual editor over the DSL - dedicated PR; the YAML editors cover it for now)
+- [ ] **Backlog**: live run experience - stream `runProgress` decisions into the table as they arrive (with a progress indicator and per-account grouping) instead of only showing the final result
+- [ ] **Backlog**: dashboard / overview home - a Pi-hole-style landing page with accounts sign-in status, last-run summary/counts, and quick actions
 
 ## License
 

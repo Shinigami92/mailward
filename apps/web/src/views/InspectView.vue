@@ -73,41 +73,50 @@ function formatAge(hours: number): string {
 section(class="space-y-4")
   div(class="flex flex-wrap items-end gap-3")
     div(class="flex flex-col gap-1")
-      label(class="text-xs font-medium uppercase tracking-wide text-slate-400") Account
-      select(v-model="account" class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm")
+      label(class="text-xs font-medium uppercase tracking-wide text-ui-fg-faint") Account
+      select(v-model="account" class="rounded-md border border-ui-line-strong bg-ui-surface px-3 py-2 text-sm text-ui-fg")
         option(v-for="a in accounts" :key="a.id" :value="a.id") {{ a.id }}
     div(class="flex flex-col gap-1")
-      label(class="text-xs font-medium uppercase tracking-wide text-slate-400") Folder
-      select(v-model="folder" class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm")
+      label(class="text-xs font-medium uppercase tracking-wide text-ui-fg-faint") Folder
+      select(v-model="folder" class="rounded-md border border-ui-line-strong bg-ui-surface px-3 py-2 text-sm text-ui-fg")
         option(v-for="f in folders" :key="f" :value="f") {{ f }}
     div(class="flex flex-col gap-1")
-      label(class="text-xs font-medium uppercase tracking-wide text-slate-400") Limit
-      input(type="number" v-model.number="limit" min="1" max="500" class="w-24 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm")
-    label(class="flex items-center gap-2 text-sm text-slate-600")
-      input(type="checkbox" v-model="unreadOnly" class="size-4 rounded border-slate-300")
+      label(class="text-xs font-medium uppercase tracking-wide text-ui-fg-faint") Limit
+      input(type="number" v-model.number="limit" min="1" max="500" class="w-24 rounded-md border border-ui-line-strong bg-ui-surface px-3 py-2 text-sm text-ui-fg")
+    label(class="flex items-center gap-2 text-sm text-ui-fg-muted")
+      input(type="checkbox" v-model="unreadOnly" class="size-4 rounded border-ui-line-strong")
       span Unread only
-    button(type="button" :disabled="fetching || !folder" class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50" @click="load")
+    button(type="button" :disabled="fetching || !folder" class="rounded-md bg-ui-accent px-4 py-2 text-sm font-medium text-ui-accent-fg hover:opacity-90 disabled:opacity-50" @click="load")
       span(v-if="fetching") Loading...
       span(v-else) Load
-  p(class="text-xs text-slate-400") Read-only - inspecting a folder never marks mail as read, and confidential folders are not listed.
-  p(v-if="error" class="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700") {{ error.message }}
-  table(v-if="messages.length" class="w-full table-fixed border-collapse text-sm")
+  p(class="text-xs text-ui-fg-faint") Read-only - inspecting a folder never marks mail as read, and confidential folders are not listed.
+  p(v-if="error" class="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950 dark:text-rose-300") {{ error.message }}
+  div(v-if="messages.length" class="space-y-2 sm:hidden")
+    div(v-for="msg in messages" :key="msg.uid" class="space-y-1 rounded-lg border border-ui-line bg-ui-surface p-3")
+      div(class="flex items-center justify-between gap-2")
+        span(v-if="msg.isRead" class="rounded-full bg-ui-surface-2 px-2 py-0.5 text-xs text-ui-fg-muted") read
+        span(v-else class="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-300") unread
+        span(class="text-xs text-ui-fg-faint") {{ formatAge(msg.ageHours) }}
+      div(class="font-medium") {{ msg.subject || "(no subject)" }}
+      div(class="text-sm text-ui-fg-muted") {{ msg.fromName || msg.from }}
+      div(v-if="msg.bodyPreview" class="line-clamp-2 text-xs text-ui-fg-faint") {{ msg.bodyPreview }}
+  table(v-if="messages.length" class="hidden w-full table-fixed border-collapse text-sm sm:table")
     thead
-      tr(class="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400")
+      tr(class="border-b border-ui-line text-left text-xs uppercase tracking-wide text-ui-fg-faint")
         th(class="w-20 py-2 pr-3") State
         th(class="py-2 pr-3") Subject
         th(class="w-56 py-2 pr-3") From
         th(class="w-16 py-2") Age
     tbody
-      tr(v-for="msg in messages" :key="msg.uid" class="border-b border-slate-100 align-top")
+      tr(v-for="msg in messages" :key="msg.uid" class="border-b border-ui-line align-top")
         td(class="py-2 pr-3")
-          span(v-if="msg.isRead" class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500") read
-          span(v-else class="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700") unread
+          span(v-if="msg.isRead" class="rounded-full bg-ui-surface-2 px-2 py-0.5 text-xs text-ui-fg-muted") read
+          span(v-else class="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-300") unread
         td(class="py-2 pr-3")
           div(class="truncate font-medium") {{ msg.subject || "(no subject)" }}
-          div(class="truncate text-xs text-slate-400") {{ msg.bodyPreview }}
-        td(class="truncate py-2 pr-3 text-slate-500") {{ msg.fromName || msg.from }}
-        td(class="py-2 text-slate-400") {{ formatAge(msg.ageHours) }}
-  p(v-else-if="loaded && !fetching" class="text-sm text-slate-500") No messages in this folder.
-  p(v-else class="text-sm text-slate-400") Pick a folder and press Load.
+          div(class="truncate text-xs text-ui-fg-faint") {{ msg.bodyPreview }}
+        td(class="truncate py-2 pr-3 text-ui-fg-muted") {{ msg.fromName || msg.from }}
+        td(class="py-2 text-ui-fg-faint") {{ formatAge(msg.ageHours) }}
+  p(v-else-if="loaded && !fetching" class="text-sm text-ui-fg-muted") No messages in this folder.
+  p(v-else class="text-sm text-ui-fg-faint") Pick a folder and press Load.
 </template>

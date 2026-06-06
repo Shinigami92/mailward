@@ -1,9 +1,17 @@
 <script setup lang="ts">
+import { useDark, useToggle } from "@vueuse/core";
 import IconFilter from "~icons/lucide/funnel";
 import IconInbox from "~icons/lucide/inbox";
+import IconMoon from "~icons/lucide/moon";
 import IconSearch from "~icons/lucide/search";
 import IconSettings from "~icons/lucide/settings";
+import IconSun from "~icons/lucide/sun";
 import IconUsers from "~icons/lucide/users";
+
+// Class-based dark mode: follows the OS preference until the user toggles it, then
+// persists the choice. The pre-paint script in index.html sets the class to match.
+const isDark = useDark({ storageKey: "mailward-theme" });
+const toggleDark = useToggle(isDark);
 
 const links = [
   { to: "/", label: "Run", icon: IconInbox },
@@ -15,14 +23,16 @@ const links = [
 </script>
 
 <template lang="hsml">
-div(class="min-h-screen bg-slate-50 text-slate-900")
-  header(class="border-b border-slate-200 bg-white")
-    div(class="mx-auto flex max-w-5xl items-center gap-6 px-4 py-3")
+div(class="min-h-screen bg-ui-bg text-ui-fg")
+  header(class="border-b border-ui-line bg-ui-surface")
+    div(class="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3 sm:gap-6")
       h1(class="text-lg font-semibold tracking-tight") mailward
       nav(class="flex flex-1 gap-1 overflow-x-auto")
-        RouterLink(v-for="link in links" :key="link.to" :to="link.to" class="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100" active-class="bg-slate-900 text-white hover:bg-slate-900")
-          component(:is="link.icon" class="size-4")
-          span {{ link.label }}
+        RouterLink(v-for="link in links" :key="link.to" :to="link.to" :aria-label="link.label" class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-ui-fg-muted hover:bg-ui-surface-2 sm:px-3" active-class="bg-ui-accent text-ui-accent-fg hover:bg-ui-accent")
+          component(:is="link.icon" class="size-4 shrink-0")
+          span(class="hidden sm:inline") {{ link.label }}
+      button(type="button" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'" class="rounded-md p-2 text-ui-fg-muted hover:bg-ui-surface-2" @click="toggleDark()")
+        component(:is="isDark ? IconSun : IconMoon" class="size-4")
   main(class="mx-auto max-w-5xl px-4 py-6")
     RouterView
 </template>
