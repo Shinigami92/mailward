@@ -3,7 +3,7 @@ name: mailward
 services:
   mailward:
     # Pull the published image, or build locally with `docker compose build`.
-    image: ghcr.io/shinigami92/mailward:latest
+    image: ghcr.io/shinigami92/mailward:0.1.0
     build:
       context: .
     ports:

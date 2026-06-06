@@ -1,9 +1,11 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
 
 # ----- Stage 1: build the SPA -----
-FROM node:22-bookworm-slim AS web
+FROM node:26.3.0-trixie-slim@sha256:aa27a5fbf5acb298116a38133794f080406c6f8dfe52e2e2836bb55dc7cae8f0 AS web
 WORKDIR /app
-RUN corepack enable
+# Node 26 no longer bundles corepack, so install the pinned pnpm directly.
+# Keep this version in sync with the root package.json "packageManager" field.
+RUN npm install -g pnpm@11.5.2
 # Install deps first (cached unless the manifests change).
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY apps/web/package.json apps/web/package.json
@@ -14,7 +16,7 @@ COPY apps/web apps/web
 RUN pnpm --filter @mailward/web build
 
 # ----- Stage 2: build the API binary -----
-FROM rust:1.95-bookworm AS api
+FROM rust:1.96-trixie@sha256:fb328f0f58becb23ba1719940a2c94ece8b0b48afa837d05b79ef64bc1e18f6e AS api
 WORKDIR /app
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY crates crates
@@ -22,11 +24,11 @@ COPY crates crates
 # survives outside the (ephemeral) cache mount.
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/app/target \
-    cargo build --release -p mailward-api \
+    cargo build --locked --release -p mailward-api \
     && cp target/release/mailward-api /usr/local/bin/mailward-api
 
 # ----- Stage 3: runtime -----
-FROM debian:bookworm-slim AS runtime
+FROM debian:trixie-slim@sha256:b6e2a152f22a40ff69d92cb397223c906017e1391a73c952b588e51af8883bf8 AS runtime
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/* \

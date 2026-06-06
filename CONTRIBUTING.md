@@ -7,9 +7,9 @@ Thanks for your interest! mailward is a polyglot monorepo: a **Rust** engine + A
 
 | Tool            | Version                                | Notes                                                                     |
 | --------------- | -------------------------------------- | ------------------------------------------------------------------------- |
-| **Rust**        | 1.95 (pinned in `rust-toolchain.toml`) | `rustup` auto-selects it; includes `rustfmt` + `clippy`                   |
-| **Node.js**     | ≥ 22                                   |                                                                           |
-| **pnpm**        | 11 (pinned via `packageManager`)       | `corepack enable`                                                         |
+| **Rust**        | 1.96 (pinned in `rust-toolchain.toml`) | `rustup` auto-selects it; includes `rustfmt` + `clippy`                   |
+| **Node.js**     | ≥ 26                                   |                                                                           |
+| **pnpm**        | 11 (pinned via `packageManager`)       | `npm install -g pnpm@11.5.2` (Node 26 removed corepack)                   |
 | **just**        | latest                                 | `winget install Casey.Just` · `cargo install just` · `scoop install just` |
 | **cargo-watch** | latest (optional)                      | `cargo install cargo-watch` - gives the backend hot-reload in `just dev`  |
 
