@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { ACCOUNTS_QUERY, INSPECT, INSPECTABLE_FOLDERS } from "@/lib/graphql";
 import { useQuery } from "@urql/vue";
 import { computed, ref, watch } from "vue";
-import { ACCOUNTS_QUERY, INSPECT, INSPECTABLE_FOLDERS } from "@/lib/graphql";
 
 interface Inspected {
   uid: string;
@@ -15,12 +15,12 @@ interface Inspected {
 }
 
 const { data: accountsData } = useQuery({ query: ACCOUNTS_QUERY });
-const accounts = computed<{ id: string }[]>(() => accountsData.value?.accounts ?? []);
+const accounts = computed<Array<{ id: string }>>(() => accountsData.value?.accounts ?? []);
 const account = ref("");
 watch(
   accounts,
   (list) => {
-    if (!account.value && list.length) account.value = list[0].id;
+    if (!account.value && list.length > 0) account.value = list[0].id;
   },
   { immediate: true },
 );
@@ -35,7 +35,7 @@ const folder = ref("");
 watch(
   folders,
   (list) => {
-    if (list.length && !list.includes(folder.value)) {
+    if (list.length > 0 && !list.includes(folder.value)) {
       folder.value = list.includes("INBOX") ? "INBOX" : list[0];
     }
   },

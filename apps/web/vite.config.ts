@@ -1,6 +1,6 @@
-import { fileURLToPath, URL } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import vue from "@vitejs/plugin-vue";
+import { fileURLToPath, URL } from "node:url";
 import Icons from "unplugin-icons/vite";
 import vueHsml from "vite-plugin-vue-hsml";
 import { defineConfig } from "vitest/config";

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { type DecisionKind, decisionClasses, decisionLabel } from "./decisions";
+import type { DecisionKind } from "./decisions";
+import { decisionClasses, decisionLabel } from "./decisions";
 
 describe("decisions", () => {
   it("labels each decision", () => {

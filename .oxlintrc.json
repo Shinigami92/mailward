@@ -1,8 +1,23 @@
 {
   "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxlint/configuration_schema.json",
-  "plugins": ["typescript", "import"],
-  "categories": {
-    "correctness": "error"
+  "ignorePatterns": ["**/dist/**", "**/target/**", "**/node_modules/**", "**/*.gen.ts"],
+  "options": {
+    "reportUnusedDisableDirectives": "error",
+    "typeAware": true
   },
-  "ignorePatterns": ["**/dist/**", "**/target/**", "**/node_modules/**", "**/*.gen.ts"]
+  "plugins": ["oxc", "typescript", "import", "unicorn", "vitest", "vue"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "pedantic": "error",
+    "perf": "error"
+  },
+  "rules": {
+    "eqeqeq": ["error", "always", { "null": "ignore" }],
+    "import/consistent-type-specifier-style": ["error", "prefer-top-level"],
+    "import/no-unassigned-import": ["error", { "allow": ["**/*.css"] }],
+    "typescript/array-type": ["error", { "default": "array-simple", "readonly": "generic" }],
+    "typescript/explicit-module-boundary-types": "error",
+    "typescript/prefer-readonly-parameter-types": ["error", { "ignoreInferredTypes": true }]
+  }
 }

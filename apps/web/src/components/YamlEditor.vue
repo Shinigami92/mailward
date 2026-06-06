@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { type TypedDocumentNode, useMutation, useQuery } from "@urql/vue";
+import type { TypedDocumentNode } from "@urql/vue";
+import { useMutation, useQuery } from "@urql/vue";
 import { ref, watch } from "vue";
 
 const props = defineProps<{
@@ -25,7 +26,10 @@ watch(
 );
 
 const { executeMutation } = useMutation(props.mutation);
-const status = ref<{ kind: "idle" | "saving" | "saved" | "error"; message?: string }>({
+const status = ref<{
+  kind: "idle" | "saving" | "saved" | "error";
+  message?: string;
+}>({
   kind: "idle",
 });
 
