@@ -1,5 +1,35 @@
 <script setup lang="ts">
+import {
+  Badge,
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Table,
+  TableBody,
+  TableCell,
+  TableEmpty,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui";
 import { ACCOUNTS_QUERY, INSPECT, INSPECTABLE_FOLDERS } from "@/lib/graphql";
+import type {
+  ColumnDef,
+  ColumnFiltersState,
+  ExpandedState,
+  SortingState,
+} from "@tanstack/vue-table";
+import {
+  getCoreRowModel,
+  getExpandedRowModel,
+  getFilteredRowModel,
+  getSortedRowModel,
+  useVueTable,
+} from "@tanstack/vue-table";
 import { useQuery } from "@urql/vue";
 import { computed, ref, watch } from "vue";
 
@@ -43,7 +73,6 @@ watch(
 );
 
 const limit = ref(50);
-const unreadOnly = ref(false);
 
 const { data, fetching, error, executeQuery } = useQuery({
   query: INSPECT,
@@ -51,12 +80,94 @@ const { data, fetching, error, executeQuery } = useQuery({
     account: account.value,
     folder: folder.value,
     limit: limit.value,
-    unreadOnly: unreadOnly.value,
+    unreadOnly: false,
   })),
   pause: true,
 });
 const messages = computed<Inspected[]>(() => data.value?.inspect ?? []);
 const loaded = ref(false);
+
+const columns: Array<ColumnDef<Inspected>> = [
+  { id: "from", accessorFn: (m) => m.fromName || m.from },
+  {
+    id: "age",
+    accessorFn: (m) => m.ageHours,
+    filterFn: (row, id, value) => row.getValue<number>(id) <= Number(value),
+  },
+  {
+    id: "state",
+    accessorFn: (m) => (m.isRead ? 1 : 0),
+    filterFn: (row, id, value) => row.getValue<number>(id) === Number(value),
+  },
+  { id: "subject", accessorFn: (m) => m.subject },
+];
+
+// Default to newest first: a smaller age (in hours) means a more recent message.
+const sorting = ref<SortingState>([{ id: "age", desc: false }]);
+const globalFilter = ref("");
+const expanded = ref<ExpandedState>({});
+
+// Faceted filters (driven by the Select controls, applied as TanStack column filters).
+const stateFacet = ref<"all" | "unread" | "read">("all");
+const ageFacet = ref<"all" | "24" | "168" | "720">("all");
+const columnFilters = computed<ColumnFiltersState>(() => {
+  const filters: ColumnFiltersState = [];
+  if (stateFacet.value !== "all") {
+    filters.push({ id: "state", value: stateFacet.value === "read" ? 1 : 0 });
+  }
+  if (ageFacet.value !== "all") {
+    filters.push({ id: "age", value: Number(ageFacet.value) });
+  }
+  return filters;
+});
+
+const table = useVueTable({
+  get data() {
+    return messages.value;
+  },
+  columns,
+  state: {
+    get sorting() {
+      return sorting.value;
+    },
+    get globalFilter() {
+      return globalFilter.value;
+    },
+    get columnFilters() {
+      return columnFilters.value;
+    },
+    get expanded() {
+      return expanded.value;
+    },
+  },
+  onSortingChange: (updater) => {
+    sorting.value = typeof updater === "function" ? updater(sorting.value) : updater;
+  },
+  onGlobalFilterChange: (updater) => {
+    globalFilter.value = typeof updater === "function" ? updater(globalFilter.value) : updater;
+  },
+  onExpandedChange: (updater) => {
+    expanded.value = typeof updater === "function" ? updater(expanded.value) : updater;
+  },
+  globalFilterFn: (row, _columnId, value) => {
+    const query = String(value).toLowerCase();
+    const m = row.original;
+    return `${m.subject} ${m.from} ${m.fromName} ${m.bodyPreview}`.toLowerCase().includes(query);
+  },
+  getRowCanExpand: () => true,
+  getCoreRowModel: getCoreRowModel(),
+  getSortedRowModel: getSortedRowModel(),
+  getFilteredRowModel: getFilteredRowModel(),
+  getExpandedRowModel: getExpandedRowModel(),
+});
+
+function toggleSort(columnId: string): void {
+  table.getColumn(columnId)?.toggleSorting();
+}
+function sortIcon(columnId: string): string {
+  const dir = table.getColumn(columnId)?.getIsSorted();
+  return dir === "asc" ? "▲" : dir === "desc" ? "▼" : "";
+}
 
 function load() {
   if (!account.value || !folder.value) return;
@@ -73,50 +184,87 @@ function formatAge(hours: number): string {
 section(class="space-y-4")
   div(class="flex flex-wrap items-end gap-3")
     div(class="flex flex-col gap-1")
-      label(class="text-xs font-medium uppercase tracking-wide text-ui-fg-faint") Account
-      select(v-model="account" class="rounded-md border border-ui-line-strong bg-ui-surface px-3 py-2 text-sm text-ui-fg")
-        option(v-for="a in accounts" :key="a.id" :value="a.id") {{ a.id }}
+      label(class="text-xs font-medium uppercase tracking-wide text-muted-foreground") Account
+      Select(v-model="account")
+        SelectTrigger(class="w-40")
+          SelectValue(placeholder="Account")
+        SelectContent
+          SelectItem(v-for="a in accounts" :key="a.id" :value="a.id") {{ a.id }}
     div(class="flex flex-col gap-1")
-      label(class="text-xs font-medium uppercase tracking-wide text-ui-fg-faint") Folder
-      select(v-model="folder" class="rounded-md border border-ui-line-strong bg-ui-surface px-3 py-2 text-sm text-ui-fg")
-        option(v-for="f in folders" :key="f" :value="f") {{ f }}
+      label(class="text-xs font-medium uppercase tracking-wide text-muted-foreground") Folder
+      Select(v-model="folder")
+        SelectTrigger(class="w-52")
+          SelectValue(placeholder="Folder")
+        SelectContent
+          SelectItem(v-for="f in folders" :key="f" :value="f") {{ f }}
     div(class="flex flex-col gap-1")
-      label(class="text-xs font-medium uppercase tracking-wide text-ui-fg-faint") Limit
-      input(type="number" v-model.number="limit" min="1" max="500" class="w-24 rounded-md border border-ui-line-strong bg-ui-surface px-3 py-2 text-sm text-ui-fg")
-    label(class="flex items-center gap-2 text-sm text-ui-fg-muted")
-      input(type="checkbox" v-model="unreadOnly" class="size-4 rounded border-ui-line-strong")
-      span Unread only
-    button(type="button" :disabled="fetching || !folder" class="rounded-md bg-ui-accent px-4 py-2 text-sm font-medium text-ui-accent-fg hover:opacity-90 disabled:opacity-50" @click="load")
+      label(class="text-xs font-medium uppercase tracking-wide text-muted-foreground") Limit
+      input(type="number" v-model.number="limit" min="1" max="500" class="h-9 w-24 rounded-md border border-input bg-transparent px-3 text-sm")
+    Button(:disabled="fetching || !folder" @click="load")
       span(v-if="fetching") Loading...
       span(v-else) Load
-  p(class="text-xs text-ui-fg-faint") Read-only - inspecting a folder never marks mail as read, and confidential folders are not listed.
-  p(v-if="error" class="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950 dark:text-rose-300") {{ error.message }}
-  div(v-if="messages.length" class="space-y-2 sm:hidden")
-    div(v-for="msg in messages" :key="msg.uid" class="space-y-1 rounded-lg border border-ui-line bg-ui-surface p-3")
-      div(class="flex items-center justify-between gap-2")
-        span(v-if="msg.isRead" class="rounded-full bg-ui-surface-2 px-2 py-0.5 text-xs text-ui-fg-muted") read
-        span(v-else class="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-300") unread
-        span(class="text-xs text-ui-fg-faint") {{ formatAge(msg.ageHours) }}
-      div(class="font-medium") {{ msg.subject || "(no subject)" }}
-      div(class="text-sm text-ui-fg-muted") {{ msg.fromName || msg.from }}
-      div(v-if="msg.bodyPreview" class="line-clamp-2 text-xs text-ui-fg-faint") {{ msg.bodyPreview }}
-  table(v-if="messages.length" class="hidden w-full table-fixed border-collapse text-sm sm:table")
-    thead
-      tr(class="border-b border-ui-line text-left text-xs uppercase tracking-wide text-ui-fg-faint")
-        th(class="w-20 py-2 pr-3") State
-        th(class="py-2 pr-3") Subject
-        th(class="w-56 py-2 pr-3") From
-        th(class="w-16 py-2") Age
-    tbody
-      tr(v-for="msg in messages" :key="msg.uid" class="border-b border-ui-line align-top")
-        td(class="py-2 pr-3")
-          span(v-if="msg.isRead" class="rounded-full bg-ui-surface-2 px-2 py-0.5 text-xs text-ui-fg-muted") read
-          span(v-else class="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-300") unread
-        td(class="py-2 pr-3")
-          div(class="truncate font-medium") {{ msg.subject || "(no subject)" }}
-          div(class="truncate text-xs text-ui-fg-faint") {{ msg.bodyPreview }}
-        td(class="truncate py-2 pr-3 text-ui-fg-muted") {{ msg.fromName || msg.from }}
-        td(class="py-2 text-ui-fg-faint") {{ formatAge(msg.ageHours) }}
-  p(v-else-if="loaded && !fetching" class="text-sm text-ui-fg-muted") No messages in this folder.
-  p(v-else class="text-sm text-ui-fg-faint") Pick a folder and press Load.
+  p(class="text-xs text-muted-foreground") Read-only - inspecting a folder never marks mail as read, and confidential folders are not listed. Tap a row to expand the full preview.
+  p(v-if="error" class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive") {{ error.message }}
+  div(v-if="messages.length" class="space-y-3")
+    div(class="flex flex-wrap items-center gap-3")
+      Input(v-model="globalFilter" type="search" placeholder="Filter messages..." class="min-w-48 flex-1 sm:max-w-xs")
+      div(class="flex items-center gap-2")
+        span(class="text-xs font-medium uppercase tracking-wide text-muted-foreground") State
+        Select(v-model="stateFacet")
+          SelectTrigger(class="w-32")
+            SelectValue
+          SelectContent
+            SelectItem(value="all") All
+            SelectItem(value="unread") Unread
+            SelectItem(value="read") Read
+      div(class="flex items-center gap-2")
+        span(class="text-xs font-medium uppercase tracking-wide text-muted-foreground") Age
+        Select(v-model="ageFacet")
+          SelectTrigger(class="w-32")
+            SelectValue
+          SelectContent
+            SelectItem(value="all") All
+            SelectItem(value="24") ≤ 24h
+            SelectItem(value="168") ≤ 7d
+            SelectItem(value="720") ≤ 30d
+    div(class="rounded-md border border-border")
+      Table
+        TableHeader
+          TableRow
+            TableHead(class="hidden md:table-cell")
+              button(type="button" class="inline-flex items-center gap-1 hover:text-foreground" @click="toggleSort('from')")
+                span From
+                span(v-if="sortIcon('from')" class="text-[0.65rem] leading-none") {{ sortIcon('from') }}
+            TableHead(class="w-16")
+              button(type="button" class="inline-flex items-center gap-1 hover:text-foreground" @click="toggleSort('age')")
+                span Age
+                span(v-if="sortIcon('age')" class="text-[0.65rem] leading-none") {{ sortIcon('age') }}
+            TableHead(class="hidden w-24 sm:table-cell")
+              button(type="button" class="inline-flex items-center gap-1 hover:text-foreground" @click="toggleSort('state')")
+                span State
+                span(v-if="sortIcon('state')" class="text-[0.65rem] leading-none") {{ sortIcon('state') }}
+            TableHead
+              button(type="button" class="inline-flex items-center gap-1 hover:text-foreground" @click="toggleSort('subject')")
+                span Subject
+                span(v-if="sortIcon('subject')" class="text-[0.65rem] leading-none") {{ sortIcon('subject') }}
+        TableBody
+          template(v-for="row in table.getRowModel().rows" :key="row.id")
+            TableRow
+              TableCell(class="hidden max-w-56 truncate text-muted-foreground md:table-cell") {{ row.original.fromName || row.original.from }}
+              TableCell(class="whitespace-nowrap text-muted-foreground") {{ formatAge(row.original.ageHours) }}
+              TableCell(class="hidden sm:table-cell")
+                Badge(v-if="row.original.isRead" variant="secondary") read
+                Badge(v-else variant="outline" class="border-transparent bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300") unread
+              TableCell
+                button(type="button" class="block w-full text-left" :aria-expanded="row.getIsExpanded()" @click="row.toggleExpanded()")
+                  div(class="font-medium") {{ row.original.subject || "(no subject)" }}
+                  div(v-if="row.original.bodyPreview && !row.getIsExpanded()" class="line-clamp-1 break-words text-xs text-muted-foreground") {{ row.original.bodyPreview }}
+            TableRow(v-if="row.getIsExpanded()")
+              TableCell(:colspan="4" class="bg-muted/30")
+                div(class="space-y-2")
+                  div(class="text-sm text-muted-foreground md:hidden") {{ row.original.fromName || row.original.from }}
+                  div(class="whitespace-pre-wrap break-words text-xs text-muted-foreground") {{ row.original.bodyPreview }}
+          TableEmpty(v-if="!table.getRowModel().rows.length" :colspan="4") No messages match the filters.
+  p(v-if="loaded && !fetching && !messages.length" class="text-sm text-muted-foreground") No messages in this folder.
+  p(v-if="!loaded && !fetching" class="text-sm text-muted-foreground") Pick a folder and press Load.
 </template>

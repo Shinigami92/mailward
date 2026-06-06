@@ -1,55 +1,95 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
 /* Class-based dark mode: `dark:` applies when the element (or an ancestor) has `.dark`. */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Semantic theme tokens. Light is the default; the `.dark` block flips them. Values
-   reference Tailwind's default slate palette, so the look stays neutral in both modes. */
+/* shadcn-vue semantic theme tokens (--background, --foreground, --primary, ...). Light
+   defaults; the `.dark` block flips them. Values reference Tailwind's default slate
+   palette, so the look stays neutral in both modes. */
 :root {
   color-scheme: light;
-  --ui-bg: var(--color-slate-50);
-  --ui-surface: #ffffff;
-  --ui-surface-2: var(--color-slate-100);
-  --ui-line: var(--color-slate-200);
-  --ui-line-strong: var(--color-slate-300);
-  --ui-fg: var(--color-slate-900);
-  --ui-fg-muted: var(--color-slate-500);
-  --ui-fg-faint: var(--color-slate-400);
-  --ui-accent: var(--color-slate-900);
-  --ui-accent-fg: #ffffff;
+  --radius: 0.5rem;
+
+  --background: var(--color-slate-50);
+  --foreground: var(--color-slate-900);
+  --card: #ffffff;
+  --card-foreground: var(--color-slate-900);
+  --popover: #ffffff;
+  --popover-foreground: var(--color-slate-900);
+  --primary: var(--color-slate-900);
+  --primary-foreground: var(--color-slate-50);
+  --secondary: var(--color-slate-100);
+  --secondary-foreground: var(--color-slate-900);
+  --muted: var(--color-slate-100);
+  --muted-foreground: var(--color-slate-500);
+  --accent: var(--color-slate-100);
+  --accent-foreground: var(--color-slate-900);
+  --destructive: var(--color-rose-600);
+  --destructive-foreground: var(--color-slate-50);
+  --border: var(--color-slate-200);
+  --input: var(--color-slate-200);
+  --ring: var(--color-slate-400);
 }
 
 .dark {
   color-scheme: dark;
-  --ui-bg: var(--color-slate-950);
-  --ui-surface: var(--color-slate-900);
-  --ui-surface-2: var(--color-slate-800);
-  --ui-line: var(--color-slate-800);
-  --ui-line-strong: var(--color-slate-700);
-  --ui-fg: var(--color-slate-100);
-  --ui-fg-muted: var(--color-slate-400);
-  --ui-fg-faint: var(--color-slate-500);
-  --ui-accent: var(--color-slate-100);
-  --ui-accent-fg: var(--color-slate-900);
+
+  --background: var(--color-slate-950);
+  --foreground: var(--color-slate-100);
+  --card: var(--color-slate-900);
+  --card-foreground: var(--color-slate-100);
+  --popover: var(--color-slate-900);
+  --popover-foreground: var(--color-slate-100);
+  --primary: var(--color-slate-100);
+  --primary-foreground: var(--color-slate-900);
+  --secondary: var(--color-slate-800);
+  --secondary-foreground: var(--color-slate-100);
+  --muted: var(--color-slate-800);
+  --muted-foreground: var(--color-slate-400);
+  --accent: var(--color-slate-800);
+  --accent-foreground: var(--color-slate-100);
+  --destructive: var(--color-rose-500);
+  --destructive-foreground: var(--color-slate-50);
+  --border: var(--color-slate-800);
+  --input: var(--color-slate-800);
+  --ring: var(--color-slate-600);
 }
 
-/* Expose the tokens as Tailwind color utilities: bg-ui-surface, text-ui-fg, border-ui-line, ... */
+/* Expose tokens as Tailwind utilities (bg-background, text-foreground, border-border, bg-card, ...). */
 @theme inline {
-  --color-ui-bg: var(--ui-bg);
-  --color-ui-surface: var(--ui-surface);
-  --color-ui-surface-2: var(--ui-surface-2);
-  --color-ui-line: var(--ui-line);
-  --color-ui-line-strong: var(--ui-line-strong);
-  --color-ui-fg: var(--ui-fg);
-  --color-ui-fg-muted: var(--ui-fg-muted);
-  --color-ui-fg-faint: var(--ui-fg-faint);
-  --color-ui-accent: var(--ui-accent);
-  --color-ui-accent-fg: var(--ui-accent-fg);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
 @layer base {
+  * {
+    border-color: var(--border);
+  }
   body {
-    background-color: var(--ui-bg);
-    color: var(--ui-fg);
+    background-color: var(--background);
+    color: var(--foreground);
   }
 }
