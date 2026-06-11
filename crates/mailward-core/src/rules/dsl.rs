@@ -14,6 +14,7 @@ use std::borrow::Cow;
 use regex::{Regex, RegexBuilder};
 use serde::Deserialize;
 use serde_yaml_ng::Value;
+use unicode_normalization::UnicodeNormalization;
 
 use super::RuleError;
 use super::data::{RefValue, RulesData};
@@ -240,13 +241,33 @@ fn value_scalar(value: &Value) -> Option<String> {
     }
 }
 
+/// NFKC-fold human-authored text so Unicode "stylised" letters spammers use to dodge
+/// plain-text rules (mathematical bold `𝙉𝙤`, fullwidth `Ｎｏ`, ...) collapse to their ASCII
+/// form before matching. ASCII is the common case and returns borrowed (no allocation);
+/// accents (`ä`) are preserved, since NFKC only undoes *compatibility* decompositions.
+fn fold_for_match(text: &str) -> Cow<'_, str> {
+    if text.is_ascii() {
+        Cow::Borrowed(text)
+    } else {
+        Cow::Owned(text.nfkc().collect())
+    }
+}
+
 /// The text of a field for the current message (case folding happens at the call site).
+/// Human-text fields are confusables-folded; addresses and folder names are matched raw.
 fn string_value(message: &MailMessage, field: Field) -> Cow<'_, str> {
     match field {
-        Field::Subject => Cow::Borrowed(&message.subject),
+        Field::Subject => fold_for_match(&message.subject),
         Field::FromAddress => Cow::Borrowed(&message.from_address),
-        Field::FromName => Cow::Borrowed(&message.from_name),
-        Field::Content => Cow::Owned(format!("{} {}", message.subject, message.body_preview)),
+        Field::FromName => fold_for_match(&message.from_name),
+        Field::Content => {
+            let combined = format!("{} {}", message.subject, message.body_preview);
+            if combined.is_ascii() {
+                Cow::Owned(combined)
+            } else {
+                Cow::Owned(combined.nfkc().collect())
+            }
+        }
         Field::Folder => Cow::Borrowed(folder_name(&message.folder)),
         // Guarded by `ensure_text_field`; never reached.
         Field::Age => Cow::Borrowed(""),
@@ -287,5 +308,47 @@ fn operand_type(op: Op, expected: &str) -> RuleError {
     RuleError::OperandType {
         op: format!("{op:?}"),
         expected: expected.into(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn message(subject: &str) -> MailMessage {
+        MailMessage {
+            id: "1".into(),
+            folder: "Junk".into(),
+            subject: subject.into(),
+            from_address: String::new(),
+            from_name: String::new(),
+            body_preview: String::new(),
+            age_hours: 0.0,
+            is_read: false,
+        }
+    }
+
+    #[test]
+    fn fold_keeps_ascii_borrowed_and_preserves_accents() {
+        assert!(matches!(fold_for_match("plain ascii"), Cow::Borrowed(_)));
+        // NFKC must NOT strip the German umlauts the rules rely on (bestätigt, gefährdet, ...).
+        assert_eq!(fold_for_match("bestätigt").as_ref(), "bestätigt");
+    }
+
+    #[test]
+    fn fold_collapses_unicode_confusables_to_ascii() {
+        // Mathematical sans-serif bold - a classic spam evasion - folds to ASCII.
+        assert_eq!(fold_for_match("𝙉𝙤 𝘿𝙚𝙥𝙤𝙨𝙞𝙩").as_ref(), "No Deposit");
+        // Fullwidth Latin folds too.
+        assert_eq!(fold_for_match("Ｆｒｅｅ Ｓｐｉｎｓ").as_ref(), "Free Spins");
+    }
+
+    #[test]
+    fn subject_is_folded_so_styled_spam_still_matches() {
+        let m = message("Claim 50 𝙁𝙧𝙚𝙚 𝙎𝙥𝙞𝙣𝙨 now");
+        assert_eq!(
+            string_value(&m, Field::Subject).as_ref(),
+            "Claim 50 Free Spins now"
+        );
     }
 }
