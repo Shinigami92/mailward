@@ -18,6 +18,8 @@ import {
 } from "@/components/ui";
 import type { DecisionKind } from "@/lib/decisions";
 import { ACCOUNTS_QUERY, RUN_PROGRESS, TRIGGER_RUN } from "@/lib/graphql";
+import type { Decision, ProgressEvent, RunExecutor } from "@/lib/runController";
+import { useRunController } from "@/lib/runController";
 import { cn } from "@/lib/utils";
 import type { ColumnDef, ColumnFiltersState, SortingState } from "@tanstack/vue-table";
 import {
@@ -27,81 +29,51 @@ import {
   useVueTable,
 } from "@tanstack/vue-table";
 import { useMutation, useQuery, useSubscription } from "@urql/vue";
-import { computed, ref, watch } from "vue";
-
-interface Decision {
-  account: string;
-  folder: string;
-  uid: string;
-  subject: string;
-  from: string;
-  decision: DecisionKind;
-  reason: string;
-}
-interface RunResult {
-  scanned: number;
-  actioned: number;
-  applied: boolean;
-  decisions: Decision[];
-}
+import { computed, onMounted, ref, watch } from "vue";
 
 const { data: accountsData } = useQuery({ query: ACCOUNTS_QUERY });
 const accounts = computed<Array<{ id: string }>>(() => accountsData.value?.accounts ?? []);
-const selected = ref("all");
-const mode = ref<"CLASSIFY" | "CLEANUP">("CLASSIFY");
-const apply = ref(false);
 
-interface ProgressEvent {
-  kind: string;
-  folder: string | null;
-  index: number | null;
-  total: number | null;
-  fetched: number | null;
-  fetchTotal: number | null;
-  decision: Decision | null;
-}
-interface Phase {
-  folder: string;
-  index: number;
-  total: number;
-  fetched: number;
-  fetchTotal: number;
-}
+// Run state lives in a module-level controller (see runController.ts) so it survives this
+// view unmounting/remounting: navigate to Inspect and back and the in-flight run is still
+// streaming into the same `result`/`live`, rather than restarting. `selected` aliases the
+// controller's account ref (kept distinct from the `account` v-for variable in the template).
+const {
+  account: selected,
+  mode,
+  apply,
+  result,
+  live,
+  phase,
+  errorMessage,
+  fetching,
+  setExecutor,
+  applyEvent,
+  execute,
+  ensureLoaded,
+} = useRunController();
 
-// Live run progress streamed over the subscription: `folder` events (which folder is being
-// scanned + how many of its messages are fetched) and `decision` events (one classified
-// message). The bar combines folder position with the in-folder fetch fraction, so it
-// climbs smoothly even on a single big folder (cleanup) instead of jumping to 100%.
-const live = ref<Decision[]>([]);
-const phase = ref<Phase | null>(null);
+// The bar combines folder position with the in-folder fetch fraction, so it climbs smoothly
+// even on a single big folder (cleanup) instead of jumping to 100%.
 const progressPct = computed(() => {
   const p = phase.value;
   if (!p || p.total <= 0) return 6;
   const within = p.fetchTotal > 0 ? p.fetched / p.fetchTotal : 0;
   return Math.round(((p.index - 1 + within) / p.total) * 100);
 });
+
+// Register urql's mutation executor with the controller (it stays valid after unmount, bound
+// to the app-level client) and feed run-progress events through the controller's runId filter.
+const { executeMutation } = useMutation(TRIGGER_RUN);
+setExecutor(executeMutation as unknown as RunExecutor);
 useSubscription<{ runProgress: ProgressEvent }, { runProgress: ProgressEvent }>(
   { query: RUN_PROGRESS },
   (_previous, data) => {
-    const event = data.runProgress;
-    if (event.kind === "folder" && event.folder && event.index != null && event.total != null) {
-      phase.value = {
-        folder: event.folder,
-        index: event.index,
-        total: event.total,
-        fetched: event.fetched ?? 0,
-        fetchTotal: event.fetchTotal ?? 0,
-      };
-    } else if (event.kind === "decision" && event.decision) {
-      live.value.push(event.decision);
-    }
+    applyEvent(data.runProgress);
     return data;
   },
 );
 
-const { executeMutation, fetching } = useMutation(TRIGGER_RUN);
-const result = ref<RunResult | null>(null);
-const errorMessage = ref("");
 // During a run, render the streamed `live` decisions so the table fills in real time;
 // once the mutation resolves, switch to its authoritative set (complete even if some
 // broadcast events were dropped under load).
@@ -201,29 +173,6 @@ function toggleDecision(value: DecisionKind): void {
     : [...decisionFacet.value, value];
 }
 
-// Guards against a superseded run (e.g. mode switched mid-run) clobbering the latest.
-let runToken = 0;
-
-async function execute(dryRun: boolean) {
-  errorMessage.value = "";
-  result.value = null;
-  live.value = [];
-  phase.value = null;
-  const token = ++runToken;
-  const response = await executeMutation({
-    account: selected.value === "all" ? null : selected.value,
-    mode: mode.value,
-    dryRun,
-  });
-  // A newer run started (e.g. mode switched); drop this now-stale response.
-  if (token !== runToken) return;
-  if (response.error) {
-    errorMessage.value = response.error.message;
-  } else {
-    result.value = (response.data?.triggerRun as RunResult) ?? null;
-  }
-}
-
 // The button: applies only when Apply is ticked (with confirmation); otherwise a dry run.
 async function run() {
   if (
@@ -235,19 +184,20 @@ async function run() {
   await execute(!apply.value);
 }
 
-// Auto-run a DRY run on open and whenever the mode or account changes, so results appear
-// (streaming in live) without a click. This path is always a dry run and ignores the Apply
-// checkbox - it can never mutate the mailbox; applying is only ever the explicit button.
-// Also clear Apply on a mode/account switch: the fresh result is a preview, so a still-ticked
-// box would wrongly imply it was applied.
-watch(
-  [mode, selected],
-  () => {
-    apply.value = false;
-    void execute(true);
-  },
-  { immediate: true },
-);
+// Auto-run a DRY run whenever the mode or account changes, so results appear (streaming in
+// live) without a click. This path is always a dry run and ignores the Apply checkbox - it
+// can never mutate the mailbox; applying is only ever the explicit button. Also clear Apply
+// on a switch: the fresh result is a preview, so a still-ticked box would wrongly imply it
+// was applied. Not `immediate` - on (re)mount we reattach to any existing run/result via
+// `ensureLoaded` instead of restarting.
+watch([mode, selected], () => {
+  apply.value = false;
+  void execute(true);
+});
+
+// On open, run a dry run only if there's nothing to show and no run is already going - so
+// returning from Inspect reattaches to the live run / existing result instead of rescanning.
+onMounted(() => ensureLoaded());
 </script>
 
 <template lang="hsml">
@@ -255,7 +205,7 @@ section(class="space-y-5")
   div(class="flex flex-wrap items-end gap-3")
     div(class="flex flex-col gap-1")
       label(class="text-xs font-medium uppercase tracking-wide text-muted-foreground") Account
-      Select(v-model="selected")
+      Select(v-model="selected" :disabled="fetching")
         SelectTrigger(class="w-44")
           SelectValue(placeholder="All accounts")
         SelectContent
@@ -263,14 +213,14 @@ section(class="space-y-5")
           SelectItem(v-for="account in accounts" :key="account.id" :value="account.id") {{ account.id }}
     div(class="flex flex-col gap-1")
       label(class="text-xs font-medium uppercase tracking-wide text-muted-foreground") Mode
-      Select(v-model="mode")
+      Select(v-model="mode" :disabled="fetching")
         SelectTrigger(class="w-44")
           SelectValue
         SelectContent
           SelectItem(value="CLASSIFY") Classify (unread)
           SelectItem(value="CLEANUP") Cleanup (read)
-    label(class="flex items-center gap-2 text-sm text-muted-foreground")
-      input(type="checkbox" v-model="apply" class="size-4 rounded border-input")
+    label(class="flex items-center gap-2 text-sm text-muted-foreground" :class="{ 'opacity-50': fetching }")
+      input(type="checkbox" v-model="apply" :disabled="fetching" class="size-4 rounded border-input")
       span Apply (not a dry run)
     Button(:variant="apply ? 'destructive' : 'default'" :disabled="fetching" @click="run")
       span(v-if="fetching") Running...

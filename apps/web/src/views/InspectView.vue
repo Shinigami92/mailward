@@ -190,21 +190,21 @@ section(class="space-y-4")
   div(class="flex flex-wrap items-end gap-3")
     div(class="flex flex-col gap-1")
       label(class="text-xs font-medium uppercase tracking-wide text-muted-foreground") Account
-      Select(v-model="account")
+      Select(v-model="account" :disabled="fetching")
         SelectTrigger(class="w-40")
           SelectValue(placeholder="Account")
         SelectContent
           SelectItem(v-for="a in accounts" :key="a.id" :value="a.id") {{ a.id }}
     div(class="flex flex-col gap-1")
       label(class="text-xs font-medium uppercase tracking-wide text-muted-foreground") Folder
-      Select(v-model="folder")
+      Select(v-model="folder" :disabled="fetching")
         SelectTrigger(class="w-52")
           SelectValue(placeholder="Folder")
         SelectContent
           SelectItem(v-for="f in folders" :key="f" :value="f") {{ f }}
     div(class="flex flex-col gap-1")
       label(class="text-xs font-medium uppercase tracking-wide text-muted-foreground") Limit
-      input(type="number" v-model.number="limit" min="1" max="500" class="h-9 w-24 rounded-md border border-input bg-transparent px-3 text-sm")
+      input(type="number" v-model.number="limit" min="1" max="500" :disabled="fetching" class="h-9 w-24 rounded-md border border-input bg-transparent px-3 text-sm disabled:opacity-50")
     Button(:disabled="fetching || !folder" @click="load")
       span(v-if="fetching") Loading...
       span(v-else) Load
