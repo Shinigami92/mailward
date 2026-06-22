@@ -175,6 +175,11 @@ function load() {
   executeQuery({ requestPolicy: "network-only" });
 }
 
+// Auto-load when the view opens and whenever the folder changes (an account change
+// re-resolves the folder, which re-triggers this). Inspect is read-only (BODY.PEEK), so
+// auto-loading never marks mail read. The Load button is a manual refresh.
+watch(folder, () => load());
+
 function formatAge(hours: number): string {
   return hours < 48 ? `${Math.round(hours)}h` : `${Math.round(hours / 24)}d`;
 }
