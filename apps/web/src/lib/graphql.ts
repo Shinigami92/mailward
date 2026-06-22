@@ -64,8 +64,9 @@ export const AUTH_COMPLETE = gql`
 `;
 
 export const TRIGGER_RUN = gql`
-  mutation TriggerRun($account: String, $mode: RunMode!, $dryRun: Boolean!) {
-    triggerRun(account: $account, mode: $mode, dryRun: $dryRun) {
+  mutation TriggerRun($account: String, $mode: RunMode!, $dryRun: Boolean!, $runId: String) {
+    triggerRun(account: $account, mode: $mode, dryRun: $dryRun, runId: $runId) {
+      runId
       scanned
       actioned
       applied
@@ -106,6 +107,7 @@ export const INSPECT = gql`
 export const RUN_PROGRESS = gql`
   subscription RunProgress {
     runProgress {
+      runId
       kind
       folder
       index

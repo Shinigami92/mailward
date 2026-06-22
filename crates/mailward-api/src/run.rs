@@ -96,14 +96,19 @@ fn make_decision(
     }
 }
 
-/// Runs `mode` over one account (or all). Broadcasts each decision; applies them
-/// unless `dry_run`.
+/// Runs `mode` over one account (or all). Broadcasts each decision (tagged with `run_id`
+/// so clients only render their own run's events); applies them unless `dry_run`.
+///
+/// Holds `state.run_lock` for the whole run, so concurrent triggers (mode switch, view
+/// navigation, a second tab) serialize instead of racing the shared IMAP/token state.
 pub async fn run(
     state: &AppState,
     account_filter: Option<&str>,
     mode: RunMode,
     dry_run: bool,
+    run_id: String,
 ) -> Result<RunResult, RunError> {
+    let _run_guard = state.run_lock.lock().await;
     let loaded = load(state)?;
     if let Some(id) = account_filter
         && !loaded.accounts.iter().any(|a| a.id == id)
@@ -144,6 +149,7 @@ pub async fn run(
                     let position = index as i32 + 1;
                     let events = state.events.clone();
                     let label = folder.display_name.clone();
+                    let progress_run_id = run_id.clone();
                     let messages = imap
                         .fetch_unread(
                             &folder.name,
@@ -151,6 +157,7 @@ pub async fn run(
                             config.imap.body_preview_chars,
                             move |fetched, fetch_total| {
                                 let _ = events.send(RunProgress::new_folder(
+                                    progress_run_id.clone(),
                                     label.clone(),
                                     position,
                                     total,
@@ -162,6 +169,7 @@ pub async fn run(
                         .await?;
                     let (acted, decided) = classify_folder(
                         state,
+                        &run_id,
                         &account.id,
                         &folder.display_name,
                         &messages,
@@ -181,6 +189,7 @@ pub async fn run(
                 // climbs over the scan instead of jumping to 100% and stalling.
                 let events = state.events.clone();
                 let label = folder.clone();
+                let progress_run_id = run_id.clone();
                 let messages = imap
                     .fetch_recent(
                         &folder,
@@ -188,6 +197,7 @@ pub async fn run(
                         config.imap.body_preview_chars,
                         move |fetched, fetch_total| {
                             let _ = events.send(RunProgress::new_folder(
+                                progress_run_id.clone(),
                                 label.clone(),
                                 1,
                                 1,
@@ -207,7 +217,7 @@ pub async fn run(
                     let decision = make_decision(&account.id, &folder, message, &verdict);
                     let _ = state
                         .events
-                        .send(RunProgress::new_decision(decision.clone()));
+                        .send(RunProgress::new_decision(run_id.clone(), decision.clone()));
                     if verdict.decision == Decision::Delete {
                         to_delete.push(message.id.clone());
                         actioned += 1;
@@ -224,6 +234,7 @@ pub async fn run(
     }
 
     Ok(RunResult {
+        run_id,
         scanned: decisions.len() as i32,
         actioned,
         applied: !dry_run,
@@ -239,6 +250,7 @@ struct Actions {
 
 fn classify_folder(
     state: &AppState,
+    run_id: &str,
     account: &str,
     folder: &str,
     messages: &[MailMessage],
@@ -252,9 +264,10 @@ fn classify_folder(
     for message in messages {
         let verdict = first_match(&rules.classify, message);
         let decision = make_decision(account, folder, message, &verdict);
-        let _ = state
-            .events
-            .send(RunProgress::new_decision(decision.clone()));
+        let _ = state.events.send(RunProgress::new_decision(
+            run_id.to_string(),
+            decision.clone(),
+        ));
         match verdict.decision {
             Decision::MarkRead => actions.mark_read.push(message.id.clone()),
             Decision::Delete => actions.delete.push(message.id.clone()),

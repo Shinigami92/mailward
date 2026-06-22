@@ -47,6 +47,9 @@ pub struct MessageDecision {
 /// `folder`/`index`/`total`) or `"decision"` (one classified message, carrying `decision`).
 #[derive(SimpleObject, Clone, Debug)]
 pub struct RunProgress {
+    /// Client-supplied id of the run these events belong to, so a client (or a remounted
+    /// view, or a second browser tab) only renders events for the run it started.
+    pub run_id: String,
     pub kind: String,
     pub folder: Option<String>,
     /// 1-based index of the current folder, and total folders being scanned.
@@ -61,6 +64,7 @@ pub struct RunProgress {
 
 impl RunProgress {
     pub fn new_folder(
+        run_id: String,
         folder: String,
         index: i32,
         total: i32,
@@ -68,6 +72,7 @@ impl RunProgress {
         fetch_total: i32,
     ) -> Self {
         Self {
+            run_id,
             kind: "folder".into(),
             folder: Some(folder),
             index: Some(index),
@@ -78,8 +83,9 @@ impl RunProgress {
         }
     }
 
-    pub fn new_decision(decision: MessageDecision) -> Self {
+    pub fn new_decision(run_id: String, decision: MessageDecision) -> Self {
         Self {
+            run_id,
             kind: "decision".into(),
             folder: None,
             index: None,
@@ -94,6 +100,8 @@ impl RunProgress {
 /// The outcome of a classify run.
 #[derive(SimpleObject, Debug)]
 pub struct RunResult {
+    /// Echoes the client-supplied run id (for correlation/debugging).
+    pub run_id: String,
     pub scanned: i32,
     pub actioned: i32,
     /// `false` for a dry run (nothing changed), `true` if decisions were applied.

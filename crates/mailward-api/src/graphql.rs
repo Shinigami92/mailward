@@ -24,6 +24,14 @@ fn to_err<E: std::fmt::Display>(error: E) -> async_graphql::Error {
     async_graphql::Error::new(error.to_string())
 }
 
+/// Monotonic per-process run id, used only when a client triggers a run without supplying
+/// its own `runId` (clients normally generate one so they can filter their own events).
+fn uuid_like() -> u64 {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static SEQ: AtomicU64 = AtomicU64::new(1);
+    SEQ.fetch_add(1, Ordering::Relaxed)
+}
+
 fn read_file(state: &AppState, name: &str) -> async_graphql::Result<String> {
     std::fs::read_to_string(state.settings.config_file(name)).map_err(to_err)
 }
@@ -229,9 +237,13 @@ impl Mutation {
         account: Option<String>,
         #[graphql(default_with = "RunMode::Classify")] mode: RunMode,
         #[graphql(default = true)] dry_run: bool,
+        // Client-generated id correlating this run with its `runProgress` events; the
+        // server generates one when omitted.
+        run_id: Option<String>,
     ) -> async_graphql::Result<RunResult> {
         let state = ctx.data::<AppState>()?;
-        run(state, account.as_deref(), mode, dry_run)
+        let run_id = run_id.unwrap_or_else(|| format!("srv-{}", uuid_like()));
+        run(state, account.as_deref(), mode, dry_run, run_id)
             .await
             .map_err(to_err)
     }
