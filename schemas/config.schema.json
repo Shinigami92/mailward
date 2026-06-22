@@ -56,10 +56,16 @@
           "default": "INBOX"
         },
         "inspectLimit": {
-          "description": "--inspect default maximum number of messages to return.",
+          "description": "Inspect-view default maximum number of messages to return (a UI peek, not the classify sweep).",
           "type": "integer",
           "minimum": 1,
           "default": 30
+        },
+        "classifyLimit": {
+          "description": "Classify unread-triage sweep size: the maximum number of newest unread messages fetched per folder.",
+          "type": "integer",
+          "minimum": 1,
+          "default": 500
         },
         "cleanupLimit": {
           "description": "--cleanup sweep window size: how many recent messages it scans for stale promos.",

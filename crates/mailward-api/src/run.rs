@@ -141,7 +141,7 @@ pub async fn run(
                     let messages = imap
                         .fetch_unread(
                             &folder.name,
-                            config.defaults.inspect_limit as usize,
+                            config.defaults.classify_limit as usize,
                             config.imap.body_preview_chars,
                         )
                         .await?;
