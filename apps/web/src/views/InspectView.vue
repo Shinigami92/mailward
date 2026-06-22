@@ -228,10 +228,10 @@ section(class="space-y-4")
             SelectItem(value="168") ≤ 7d
             SelectItem(value="720") ≤ 30d
     div(class="rounded-md border border-border")
-      Table
+      Table(class="table-fixed")
         TableHeader
           TableRow
-            TableHead(class="hidden md:table-cell")
+            TableHead(class="hidden w-72 md:table-cell")
               button(type="button" class="inline-flex items-center gap-1 hover:text-foreground" @click="toggleSort('from')")
                 span From
                 span(v-if="sortIcon('from')" class="text-[0.65rem] leading-none") {{ sortIcon('from') }}
@@ -258,7 +258,7 @@ section(class="space-y-4")
               TableCell
                 button(type="button" class="block w-full text-left" :aria-expanded="row.getIsExpanded()" @click="row.toggleExpanded()")
                   div(class="font-medium") {{ row.original.subject || "(no subject)" }}
-                  div(v-if="row.original.bodyPreview && !row.getIsExpanded()" class="line-clamp-1 break-words text-xs text-muted-foreground") {{ row.original.bodyPreview }}
+                  div(v-if="row.original.bodyPreview && !row.getIsExpanded()" class="truncate text-xs text-muted-foreground") {{ row.original.bodyPreview }}
             TableRow(v-if="row.getIsExpanded()")
               TableCell(:colspan="4" class="bg-muted/30")
                 div(class="space-y-2")
