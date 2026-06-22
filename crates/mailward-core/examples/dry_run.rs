@@ -75,6 +75,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     &folder,
                     config.defaults.inspect_limit as usize,
                     config.imap.body_preview_chars,
+                    |_, _| {},
                 )
                 .await?;
 

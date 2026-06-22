@@ -10,7 +10,7 @@ use tokio_stream::wrappers::BroadcastStream;
 
 use crate::run::{list_account_folders, run};
 use crate::state::AppState;
-use crate::types::{AccountInfo, AuthStart, InspectedMessage, MessageDecision, RunMode, RunResult};
+use crate::types::{AccountInfo, AuthStart, InspectedMessage, RunMode, RunProgress, RunResult};
 
 pub type ApiSchema = Schema<Query, Mutation, Subscription>;
 
@@ -241,8 +241,9 @@ pub struct Subscription;
 
 #[Subscription]
 impl Subscription {
-    /// Live stream of per-message decisions emitted while a run executes.
-    async fn run_progress(&self, ctx: &Context<'_>) -> impl Stream<Item = MessageDecision> {
+    /// Live stream of run progress (scan-phase `folder` events + per-message `decision`
+    /// events) emitted while a run executes.
+    async fn run_progress(&self, ctx: &Context<'_>) -> impl Stream<Item = RunProgress> {
         let receiver = ctx.data_unchecked::<AppState>().events.subscribe();
         BroadcastStream::new(receiver).filter_map(|result| async move { result.ok() })
     }

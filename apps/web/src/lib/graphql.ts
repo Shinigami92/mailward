@@ -106,13 +106,21 @@ export const INSPECT = gql`
 export const RUN_PROGRESS = gql`
   subscription RunProgress {
     runProgress {
-      account
+      kind
       folder
-      uid
-      subject
-      from
-      decision
-      reason
+      index
+      total
+      fetched
+      fetchTotal
+      decision {
+        account
+        folder
+        uid
+        subject
+        from
+        decision
+        reason
+      }
     }
   }
 `;

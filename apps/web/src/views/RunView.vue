@@ -51,11 +51,50 @@ const selected = ref("all");
 const mode = ref<"CLASSIFY" | "CLEANUP">("CLASSIFY");
 const apply = ref(false);
 
+interface ProgressEvent {
+  kind: string;
+  folder: string | null;
+  index: number | null;
+  total: number | null;
+  fetched: number | null;
+  fetchTotal: number | null;
+  decision: Decision | null;
+}
+interface Phase {
+  folder: string;
+  index: number;
+  total: number;
+  fetched: number;
+  fetchTotal: number;
+}
+
+// Live run progress streamed over the subscription: `folder` events (which folder is being
+// scanned + how many of its messages are fetched) and `decision` events (one classified
+// message). The bar combines folder position with the in-folder fetch fraction, so it
+// climbs smoothly even on a single big folder (cleanup) instead of jumping to 100%.
 const live = ref<Decision[]>([]);
-useSubscription<{ runProgress: Decision }, { runProgress: Decision }>(
+const phase = ref<Phase | null>(null);
+const progressPct = computed(() => {
+  const p = phase.value;
+  if (!p || p.total <= 0) return 6;
+  const within = p.fetchTotal > 0 ? p.fetched / p.fetchTotal : 0;
+  return Math.round(((p.index - 1 + within) / p.total) * 100);
+});
+useSubscription<{ runProgress: ProgressEvent }, { runProgress: ProgressEvent }>(
   { query: RUN_PROGRESS },
   (_previous, data) => {
-    live.value.push(data.runProgress);
+    const event = data.runProgress;
+    if (event.kind === "folder" && event.folder && event.index != null && event.total != null) {
+      phase.value = {
+        folder: event.folder,
+        index: event.index,
+        total: event.total,
+        fetched: event.fetched ?? 0,
+        fetchTotal: event.fetchTotal ?? 0,
+      };
+    } else if (event.kind === "decision" && event.decision) {
+      live.value.push(event.decision);
+    }
     return data;
   },
 );
@@ -169,6 +208,7 @@ async function run() {
   errorMessage.value = "";
   result.value = null;
   live.value = [];
+  phase.value = null;
   const response = await executeMutation({
     account: selected.value === "all" ? null : selected.value,
     mode: mode.value,
@@ -208,7 +248,12 @@ section(class="space-y-5")
       span(v-if="fetching") Running...
       span(v-else-if="apply") Apply
       span(v-else) Dry run
-    span(v-if="live.length" class="text-sm text-muted-foreground") {{ live.length }} processed
+  div(v-if="fetching" class="space-y-1.5")
+    div(class="flex items-center justify-between gap-3 text-sm text-muted-foreground")
+      span {{ phase ? "Scanning " + phase.folder : "Starting run..." }}
+      span(class="tabular-nums") {{ phase ? phase.index + "/" + phase.total + " folders" : "" }}{{ live.length ? " · " + live.length + " classified" : "" }}
+    div(class="h-2 w-full overflow-hidden rounded-full bg-muted")
+      div(class="h-full rounded-full bg-primary transition-all duration-300 ease-out" :class="{ 'animate-pulse': !phase }" :style="{ width: progressPct + '%' }")
   p(v-if="errorMessage" class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive") {{ errorMessage }}
   p(v-if="!result && !fetching && !errorMessage" class="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground") Choose a mode and press Dry run to classify your mail. Nothing changes unless you tick Apply.
   div(v-if="result" class="text-sm text-muted-foreground") Scanned {{ result.scanned }} · {{ result.applied ? "acted on" : "would act on" }} {{ result.actioned }} · applied: {{ result.applied }}
