@@ -28,9 +28,10 @@ folders:
 
 # Default targets/sizes for the CLI modes (overridable per-run with --folder / --limit).
 defaults:
-  folder: INBOX # folder used by --inspect / --cleanup when --folder is omitted
-  inspectLimit: 30 # --inspect default max messages
-  cleanupLimit: 500 # --cleanup sweep window size (recent messages scanned)
+  folder: INBOX # folder used by inspect / cleanup when no folder is given
+  inspectLimit: 30 # inspect-view peek size (NOT the classify sweep)
+  classifyLimit: 500 # classify: max newest unread fetched per folder
+  cleanupLimit: 500 # cleanup sweep window size (recent messages scanned)
 
 # IMAP backend tuning.
 imap:

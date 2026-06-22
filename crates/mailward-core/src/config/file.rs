@@ -41,8 +41,10 @@ impl FoldersConfig {
 pub struct DefaultsConfig {
     /// Folder used by inspect / cleanup when `--folder` is omitted.
     pub folder: String,
-    /// inspect default max messages.
+    /// inspect default max messages (a UI peek; not the classify sweep).
     pub inspect_limit: u32,
+    /// classify unread-triage sweep size (max newest unread fetched per folder).
+    pub classify_limit: u32,
     /// cleanup sweep window size (recent messages scanned).
     pub cleanup_limit: u32,
 }
@@ -87,6 +89,7 @@ struct RawFolders {
 struct RawDefaults {
     folder: Option<String>,
     inspect_limit: Option<u32>,
+    classify_limit: Option<u32>,
     cleanup_limit: Option<u32>,
 }
 
@@ -128,6 +131,7 @@ fn normalize(raw: RawFileConfig) -> FileConfig {
         defaults: DefaultsConfig {
             folder: non_empty(raw.defaults.folder, "INBOX"),
             inspect_limit: raw.defaults.inspect_limit.unwrap_or(30),
+            classify_limit: raw.defaults.classify_limit.unwrap_or(500),
             cleanup_limit: raw.defaults.cleanup_limit.unwrap_or(500),
         },
         imap: ImapConfig {
@@ -199,6 +203,7 @@ mod tests {
 
         assert_eq!(config.defaults.folder, "INBOX");
         assert_eq!(config.defaults.inspect_limit, 30);
+        assert_eq!(config.defaults.classify_limit, 500);
         assert_eq!(config.defaults.cleanup_limit, 500);
         assert_eq!(config.imap.trash_fallback, "Deleted");
         assert_eq!(config.imap.body_preview_chars, 2000);
