@@ -16,7 +16,7 @@ use mailward_core::{
 };
 
 use crate::state::AppState;
-use crate::types::{MessageDecision, RunMode, RunResult};
+use crate::types::{MessageDecision, RunMode, RunProgress, RunResult};
 
 #[derive(Debug, thiserror::Error)]
 pub enum RunError {
@@ -137,12 +137,27 @@ pub async fn run(
         match mode {
             RunMode::Classify => {
                 let folders = scan_folders(&config, &listed);
-                for folder in folders {
+                let total = folders.len() as i32;
+                for (index, folder) in folders.iter().enumerate() {
+                    // Stream per-message fetch progress so the bar advances within each
+                    // folder (and names the folder being scanned), not just folder-to-folder.
+                    let position = index as i32 + 1;
+                    let events = state.events.clone();
+                    let label = folder.display_name.clone();
                     let messages = imap
                         .fetch_unread(
                             &folder.name,
                             config.defaults.classify_limit as usize,
                             config.imap.body_preview_chars,
+                            move |fetched, fetch_total| {
+                                let _ = events.send(RunProgress::new_folder(
+                                    label.clone(),
+                                    position,
+                                    total,
+                                    fetched as i32,
+                                    fetch_total as i32,
+                                ));
+                            },
                         )
                         .await?;
                     let (acted, decided) = classify_folder(
@@ -162,11 +177,24 @@ pub async fn run(
             }
             RunMode::Cleanup => {
                 let folder = config.defaults.folder.clone();
+                // Single folder, but a big fetch: stream per-message progress so the bar
+                // climbs over the scan instead of jumping to 100% and stalling.
+                let events = state.events.clone();
+                let label = folder.clone();
                 let messages = imap
                     .fetch_recent(
                         &folder,
                         config.defaults.cleanup_limit as usize,
                         config.imap.body_preview_chars,
+                        move |fetched, fetch_total| {
+                            let _ = events.send(RunProgress::new_folder(
+                                label.clone(),
+                                1,
+                                1,
+                                fetched as i32,
+                                fetch_total as i32,
+                            ));
+                        },
                     )
                     .await?;
                 let mut to_delete = Vec::new();
@@ -177,7 +205,9 @@ pub async fn run(
                     }
                     let verdict = first_match(&rules.cleanup, message);
                     let decision = make_decision(&account.id, &folder, message, &verdict);
-                    let _ = state.events.send(decision.clone());
+                    let _ = state
+                        .events
+                        .send(RunProgress::new_decision(decision.clone()));
                     if verdict.decision == Decision::Delete {
                         to_delete.push(message.id.clone());
                         actioned += 1;
@@ -222,7 +252,9 @@ fn classify_folder(
     for message in messages {
         let verdict = first_match(&rules.classify, message);
         let decision = make_decision(account, folder, message, &verdict);
-        let _ = state.events.send(decision.clone());
+        let _ = state
+            .events
+            .send(RunProgress::new_decision(decision.clone()));
         match verdict.decision {
             Decision::MarkRead => actions.mark_read.push(message.id.clone()),
             Decision::Delete => actions.delete.push(message.id.clone()),
@@ -355,10 +387,10 @@ pub async fn inspect_messages(
     };
 
     let mut messages = if unread_only {
-        imap.fetch_unread(&raw, limit, config.imap.body_preview_chars)
+        imap.fetch_unread(&raw, limit, config.imap.body_preview_chars, |_, _| {})
             .await?
     } else {
-        imap.fetch_recent(&raw, limit, config.imap.body_preview_chars)
+        imap.fetch_recent(&raw, limit, config.imap.body_preview_chars, |_, _| {})
             .await?
     };
     imap.logout().await?;

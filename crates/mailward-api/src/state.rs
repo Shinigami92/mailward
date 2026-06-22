@@ -7,7 +7,7 @@ use mailward_core::auth::PendingAuth;
 use tokio::sync::broadcast;
 
 use crate::settings::Settings;
-use crate::types::MessageDecision;
+use crate::types::RunProgress;
 
 /// Cloneable handle to shared server state.
 #[derive(Clone)]
@@ -15,8 +15,8 @@ pub struct AppState {
     pub settings: Settings,
     /// In-progress interactive logins, keyed by account id (between authStart/authComplete).
     pub pending: Arc<Mutex<HashMap<String, PendingAuth>>>,
-    /// Broadcast of per-message decisions, consumed by the `runProgress` subscription.
-    pub events: broadcast::Sender<MessageDecision>,
+    /// Broadcast of run progress (scan-phase + per-message), consumed by `runProgress`.
+    pub events: broadcast::Sender<RunProgress>,
 }
 
 impl AppState {

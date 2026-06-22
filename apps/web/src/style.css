@@ -93,3 +93,16 @@
     color: var(--foreground);
   }
 }
+
+/* Indeterminate progress bar (a bar with no known total slides across its track). */
+@keyframes mw-indeterminate {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(420%);
+  }
+}
+.mw-indeterminate {
+  animation: mw-indeterminate 1.1s ease-in-out infinite;
+}

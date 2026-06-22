@@ -101,21 +101,28 @@ impl ImapSession {
     }
 
     /// Fetches up to `limit` of the newest unread messages in `folder`.
+    ///
+    /// `on_progress(fetched, total)` is called once up front with `(0, total)` and then
+    /// after each message arrives, so callers can drive a determinate progress bar over
+    /// the (network-bound) fetch.
     pub async fn fetch_unread(
         &mut self,
         folder: &str,
         limit: usize,
         body_preview_chars: usize,
+        mut on_progress: impl FnMut(usize, usize),
     ) -> Result<Vec<MailMessage>, ImapError> {
         self.session.select(folder).await?;
 
         let unseen = self.session.uid_search("UNSEEN").await?;
-        if unseen.is_empty() {
-            return Ok(Vec::new());
-        }
         let mut uids: Vec<u32> = unseen.into_iter().collect();
         uids.sort_unstable();
         let newest: Vec<u32> = uids.into_iter().rev().take(limit).collect();
+        let total = newest.len();
+        on_progress(0, total);
+        if newest.is_empty() {
+            return Ok(Vec::new());
+        }
         let set = newest
             .iter()
             .map(u32::to_string)
@@ -131,6 +138,7 @@ impl ImapSession {
             while let Some(item) = stream.next().await {
                 let fetch = item?;
                 messages.push(to_message(&fetch, folder, body_preview_chars));
+                on_progress(messages.len(), total);
             }
         }
         Ok(messages)
@@ -143,14 +151,18 @@ impl ImapSession {
         folder: &str,
         limit: usize,
         body_preview_chars: usize,
+        mut on_progress: impl FnMut(usize, usize),
     ) -> Result<Vec<MailMessage>, ImapError> {
         let mailbox = self.session.select(folder).await?;
-        let total = mailbox.exists;
-        if total == 0 || limit == 0 {
+        let exists = mailbox.exists;
+        if exists == 0 || limit == 0 {
+            on_progress(0, 0);
             return Ok(Vec::new());
         }
-        let start = total.saturating_sub(limit as u32).saturating_add(1).max(1);
-        let set = format!("{start}:{total}");
+        let start = exists.saturating_sub(limit as u32).saturating_add(1).max(1);
+        let set = format!("{start}:{exists}");
+        let total = (exists - start + 1) as usize;
+        on_progress(0, total);
 
         let mut messages = Vec::new();
         {
@@ -161,6 +173,7 @@ impl ImapSession {
             while let Some(item) = stream.next().await {
                 let fetch = item?;
                 messages.push(to_message(&fetch, folder, body_preview_chars));
+                on_progress(messages.len(), total);
             }
         }
         Ok(messages)

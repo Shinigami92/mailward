@@ -42,6 +42,55 @@ pub struct MessageDecision {
     pub reason: String,
 }
 
+/// A live progress event streamed over the `runProgress` subscription. `kind` is either
+/// `"folder"` (a scan-phase event emitted before fetching each folder, carrying
+/// `folder`/`index`/`total`) or `"decision"` (one classified message, carrying `decision`).
+#[derive(SimpleObject, Clone, Debug)]
+pub struct RunProgress {
+    pub kind: String,
+    pub folder: Option<String>,
+    /// 1-based index of the current folder, and total folders being scanned.
+    pub index: Option<i32>,
+    pub total: Option<i32>,
+    /// Messages fetched so far in the current folder, and the folder's total to fetch -
+    /// lets the bar climb smoothly during a single folder's (slow) fetch.
+    pub fetched: Option<i32>,
+    pub fetch_total: Option<i32>,
+    pub decision: Option<MessageDecision>,
+}
+
+impl RunProgress {
+    pub fn new_folder(
+        folder: String,
+        index: i32,
+        total: i32,
+        fetched: i32,
+        fetch_total: i32,
+    ) -> Self {
+        Self {
+            kind: "folder".into(),
+            folder: Some(folder),
+            index: Some(index),
+            total: Some(total),
+            fetched: Some(fetched),
+            fetch_total: Some(fetch_total),
+            decision: None,
+        }
+    }
+
+    pub fn new_decision(decision: MessageDecision) -> Self {
+        Self {
+            kind: "decision".into(),
+            folder: None,
+            index: None,
+            total: None,
+            fetched: None,
+            fetch_total: None,
+            decision: Some(decision),
+        }
+    }
+}
+
 /// The outcome of a classify run.
 #[derive(SimpleObject, Debug)]
 pub struct RunResult {

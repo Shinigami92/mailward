@@ -204,6 +204,10 @@ section(class="space-y-4")
       span(v-if="fetching") Loading...
       span(v-else) Load
   p(class="text-xs text-muted-foreground") Read-only - inspecting a folder never marks mail as read, and confidential folders are not listed. Tap a row to expand the full preview.
+  div(v-if="fetching" class="space-y-1.5")
+    div(class="text-sm text-muted-foreground") Loading {{ folder }}...
+    div(class="h-1.5 w-full overflow-hidden rounded-full bg-muted")
+      div(class="mw-indeterminate h-full w-1/4 rounded-full bg-primary")
   p(v-if="error" class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive") {{ error.message }}
   div(v-if="messages.length" class="space-y-3")
     div(class="flex flex-wrap items-center gap-3")
