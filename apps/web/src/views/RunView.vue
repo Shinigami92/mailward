@@ -27,7 +27,7 @@ import {
   useVueTable,
 } from "@tanstack/vue-table";
 import { useMutation, useQuery, useSubscription } from "@urql/vue";
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 
 interface Decision {
   account: string;
@@ -102,7 +102,10 @@ useSubscription<{ runProgress: ProgressEvent }, { runProgress: ProgressEvent }>(
 const { executeMutation, fetching } = useMutation(TRIGGER_RUN);
 const result = ref<RunResult | null>(null);
 const errorMessage = ref("");
-const decisions = computed<Decision[]>(() => result.value?.decisions ?? []);
+// During a run, render the streamed `live` decisions so the table fills in real time;
+// once the mutation resolves, switch to its authoritative set (complete even if some
+// broadcast events were dropped under load).
+const decisions = computed<Decision[]>(() => result.value?.decisions ?? live.value);
 
 // Sort decisions by action severity rather than alphabetically.
 const DECISION_RANK: Record<DecisionKind, number> = { KEEP: 0, MARK_READ: 1, DELETE: 2 };
@@ -198,6 +201,30 @@ function toggleDecision(value: DecisionKind): void {
     : [...decisionFacet.value, value];
 }
 
+// Guards against a superseded run (e.g. mode switched mid-run) clobbering the latest.
+let runToken = 0;
+
+async function execute(dryRun: boolean) {
+  errorMessage.value = "";
+  result.value = null;
+  live.value = [];
+  phase.value = null;
+  const token = ++runToken;
+  const response = await executeMutation({
+    account: selected.value === "all" ? null : selected.value,
+    mode: mode.value,
+    dryRun,
+  });
+  // A newer run started (e.g. mode switched); drop this now-stale response.
+  if (token !== runToken) return;
+  if (response.error) {
+    errorMessage.value = response.error.message;
+  } else {
+    result.value = (response.data?.triggerRun as RunResult) ?? null;
+  }
+}
+
+// The button: applies only when Apply is ticked (with confirmation); otherwise a dry run.
 async function run() {
   if (
     apply.value &&
@@ -205,21 +232,22 @@ async function run() {
   ) {
     return;
   }
-  errorMessage.value = "";
-  result.value = null;
-  live.value = [];
-  phase.value = null;
-  const response = await executeMutation({
-    account: selected.value === "all" ? null : selected.value,
-    mode: mode.value,
-    dryRun: !apply.value,
-  });
-  if (response.error) {
-    errorMessage.value = response.error.message;
-  } else {
-    result.value = (response.data?.triggerRun as RunResult) ?? null;
-  }
+  await execute(!apply.value);
 }
+
+// Auto-run a DRY run on open and whenever the mode or account changes, so results appear
+// (streaming in live) without a click. This path is always a dry run and ignores the Apply
+// checkbox - it can never mutate the mailbox; applying is only ever the explicit button.
+// Also clear Apply on a mode/account switch: the fresh result is a preview, so a still-ticked
+// box would wrongly imply it was applied.
+watch(
+  [mode, selected],
+  () => {
+    apply.value = false;
+    void execute(true);
+  },
+  { immediate: true },
+);
 </script>
 
 <template lang="hsml">
