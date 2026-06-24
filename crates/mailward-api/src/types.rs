@@ -38,6 +38,8 @@ pub struct MessageDecision {
     pub uid: String,
     pub subject: String,
     pub from: String,
+    /// Sender display name (or "" if absent); the UI falls back to this when `from` is empty.
+    pub from_name: String,
     pub decision: DecisionKind,
     pub reason: String,
 }
