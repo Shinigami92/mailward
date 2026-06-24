@@ -88,7 +88,7 @@ const messages = computed<Inspected[]>(() => data.value?.inspect ?? []);
 const loaded = ref(false);
 
 const columns: Array<ColumnDef<Inspected>> = [
-  { id: "from", accessorFn: (m) => m.fromName || m.from },
+  { id: "from", accessorFn: (m) => m.from || m.fromName },
   {
     id: "age",
     accessorFn: (m) => m.ageHours,
@@ -259,7 +259,11 @@ section(class="space-y-4")
         TableBody
           template(v-for="row in table.getRowModel().rows" :key="row.id")
             TableRow
-              TableCell(class="hidden max-w-56 truncate text-muted-foreground md:table-cell") {{ row.original.fromName || row.original.from }}
+              TableCell(class="hidden max-w-56 align-top text-muted-foreground md:table-cell")
+                div(v-if="row.original.from || row.original.fromName")
+                  div(class="truncate") {{ row.original.from || row.original.fromName }}
+                  div(v-if="row.original.from && row.original.fromName" class="truncate text-xs italic opacity-70") {{ row.original.fromName }}
+                span(v-else class="italic opacity-60") (unknown sender)
               TableCell(class="whitespace-nowrap text-muted-foreground") {{ formatAge(row.original.ageHours) }}
               TableCell(class="hidden sm:table-cell")
                 Badge(v-if="row.original.isRead" variant="secondary") read
@@ -271,7 +275,7 @@ section(class="space-y-4")
             TableRow(v-if="row.getIsExpanded()")
               TableCell(:colspan="4" class="bg-muted/30")
                 div(class="space-y-2")
-                  div(class="text-sm text-muted-foreground md:hidden") {{ row.original.fromName || row.original.from }}
+                  div(class="text-sm text-muted-foreground md:hidden") {{ row.original.from || row.original.fromName }}
                   div(class="whitespace-pre-wrap break-words text-xs text-muted-foreground") {{ row.original.bodyPreview }}
           TableEmpty(v-if="!table.getRowModel().rows.length" :colspan="4") No messages match the filters.
   p(v-if="loaded && !fetching && !messages.length" class="text-sm text-muted-foreground") No messages in this folder.

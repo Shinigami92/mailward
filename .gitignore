@@ -16,6 +16,7 @@ playwright/.cache/
 .env
 .cache/
 .claude/settings.local.json
+tmp/
 
 # Personal config - copy the *.example.yaml templates to these and edit.
 # (They hold your mailbox addresses, folder names + sender lists, so they stay out of git.)

@@ -8,6 +8,7 @@ export interface Decision {
   uid: string;
   subject: string;
   from: string;
+  fromName: string;
   decision: DecisionKind;
   reason: string;
 }

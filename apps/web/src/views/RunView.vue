@@ -93,7 +93,7 @@ const columns: Array<ColumnDef<Decision>> = [
     accessorFn: (d) => d.folder,
     filterFn: (row, id, value) => row.getValue<string>(id) === value,
   },
-  { id: "from", accessorFn: (d) => d.from },
+  { id: "from", accessorFn: (d) => d.from || d.fromName },
   { id: "rule", accessorFn: (d) => d.reason },
   {
     id: "decision",
@@ -151,7 +151,7 @@ const table = useVueTable({
   globalFilterFn: (row, _columnId, value) => {
     const query = String(value).toLowerCase();
     const d = row.original;
-    return `${d.folder} ${d.from} ${d.reason} ${d.decision} ${d.subject}`
+    return `${d.folder} ${d.from} ${d.fromName} ${d.reason} ${d.decision} ${d.subject}`
       .toLowerCase()
       .includes(query);
   },
@@ -219,7 +219,7 @@ section(class="space-y-5")
         SelectContent
           SelectItem(value="CLASSIFY") Classify (unread)
           SelectItem(value="CLEANUP") Cleanup (read)
-    label(class="flex items-center gap-2 text-sm text-muted-foreground" :class="{ 'opacity-50': fetching }")
+    label(class="flex h-9 items-center gap-2 text-sm text-muted-foreground" :class="{ 'opacity-50': fetching }")
       input(type="checkbox" v-model="apply" :disabled="fetching" class="size-4 rounded border-input")
       span Apply (not a dry run)
     Button(:variant="apply ? 'destructive' : 'default'" :disabled="fetching" @click="run")
@@ -276,7 +276,11 @@ section(class="space-y-5")
         TableBody
           TableRow(v-for="row in table.getRowModel().rows" :key="row.id")
             TableCell(class="hidden whitespace-nowrap text-muted-foreground lg:table-cell") {{ row.original.folder }}
-            TableCell(class="hidden max-w-48 truncate whitespace-nowrap text-muted-foreground sm:table-cell") {{ row.original.from }}
+            TableCell(class="hidden max-w-48 align-top text-muted-foreground sm:table-cell")
+              div(v-if="row.original.from || row.original.fromName")
+                div(class="truncate") {{ row.original.from || row.original.fromName }}
+                div(v-if="row.original.from && row.original.fromName" class="truncate text-xs italic opacity-70") {{ row.original.fromName }}
+              span(v-else class="italic opacity-60") (unknown sender)
             TableCell(class="hidden whitespace-nowrap text-muted-foreground lg:table-cell") {{ row.original.reason }}
             TableCell(class="whitespace-nowrap")
               DecisionBadge(:decision="row.original.decision")

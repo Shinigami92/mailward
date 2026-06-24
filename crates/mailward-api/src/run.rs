@@ -91,6 +91,7 @@ fn make_decision(
         uid: message.id.clone(),
         subject: message.subject.clone(),
         from: message.from_address.clone(),
+        from_name: message.from_name.clone(),
         decision: verdict.decision.into(),
         reason: verdict.reason.clone(),
     }

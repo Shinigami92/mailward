@@ -76,6 +76,7 @@ export const TRIGGER_RUN = gql`
         uid
         subject
         from
+        fromName
         decision
         reason
       }
@@ -120,6 +121,7 @@ export const RUN_PROGRESS = gql`
         uid
         subject
         from
+        fromName
         decision
         reason
       }
