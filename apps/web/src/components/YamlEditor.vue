@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CodeEditor from "@/components/CodeEditor.vue";
 import type { TypedDocumentNode } from "@urql/vue";
 import { useMutation, useQuery } from "@urql/vue";
 import { ref, watch } from "vue";
@@ -48,7 +49,7 @@ section(class="space-y-3")
     h2(class="text-base font-semibold") {{ label }}
     p(v-if="description" class="text-sm text-muted-foreground") {{ description }}
   p(v-if="error" class="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950 dark:text-rose-300") {{ error.message }}
-  textarea(v-model="content" spellcheck="false" class="h-96 w-full rounded-md border border-input bg-transparent p-3 font-mono text-xs leading-relaxed text-foreground shadow-inner focus:outline-none focus:ring-1 focus:ring-ring")
+  CodeEditor(v-model:value="content")
   div(class="flex items-center gap-3")
     button(type="button" :disabled="fetching || status.kind === 'saving'" class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50" @click="save") Save
     span(v-if="status.kind === 'saved'" class="text-sm text-emerald-600 dark:text-emerald-400") Saved.
