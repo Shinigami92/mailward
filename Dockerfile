@@ -16,7 +16,7 @@ COPY apps/web apps/web
 RUN pnpm --filter @mailward/web build
 
 # ----- Stage 2: build the API binary -----
-FROM rust:1.96-trixie@sha256:fb328f0f58becb23ba1719940a2c94ece8b0b48afa837d05b79ef64bc1e18f6e AS api
+FROM rust:1.96-trixie@sha256:1f0dbad1df66647807e6952d1db85d0b2bda7606cb2139d82517e4f009967376 AS api
 WORKDIR /app
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY crates crates
