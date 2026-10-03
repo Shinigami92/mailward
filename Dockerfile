@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
 
 # ----- Stage 1: build the SPA -----
-FROM node:26.3.0-trixie-slim@sha256:aa27a5fbf5acb298116a38133794f080406c6f8dfe52e2e2836bb55dc7cae8f0 AS web
+FROM node:26.10.0-trixie-slim@sha256:ec7758ee051e457b468b32bde57b0879010b325bb9862718e9615225ce4aaae1 AS web
 WORKDIR /app
 # Node 26 no longer bundles corepack, so install the pinned pnpm directly.
 # Keep this version in sync with the root package.json "packageManager" field.
