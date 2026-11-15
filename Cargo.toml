@@ -11,6 +11,6 @@ repository = "https://github.com/Shinigami92/mailward"
 
 [workspace.dependencies]
 mailward-core = { path = "crates/mailward-core" }
-serde = { version = "1", features = ["derive"] }
-tokio = { version = "1", features = ["full"] }
-anyhow = "1"
+serde = { version = "=1.0.228", features = ["derive"] }
+tokio = { version = "=1.52.3", features = ["full"] }
+anyhow = "=1.0.102"
